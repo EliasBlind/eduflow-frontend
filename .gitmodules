@@ -1,0 +1,3 @@
+[submodule "EduFlowProtos"]
+	path = EduFlowProtos
+	url = https://github.com/EliasBlind/EduFlowProtos
