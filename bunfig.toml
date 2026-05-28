@@ -1,0 +1,5 @@
+[test]
+preload = ["./src/tests/setup.ts"]
+
+[bundle]
+tsconfig = "./tsconfig.app.json"
