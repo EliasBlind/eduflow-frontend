@@ -1,4 +1,5 @@
-import { useAuthStore, selectIsAdmin, selectIsTeacher, selectIsStudent } from "@/storage/auth.store";
+import { Role } from '@/domain/person';
+import { useAuthStore } from "@/storage/auth.store";
 
 /**
  * Основной хук аутентификации.
@@ -11,9 +12,10 @@ export function useAuth() {
   const role            = useAuthStore((s) => s.role);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
-  const isAdmin   = useAuthStore(selectIsAdmin);
-  const isTeacher = useAuthStore(selectIsTeacher);
-  const isStudent = useAuthStore(selectIsStudent);
+  const isAdmin   = useAuthStore((s) => s.role === Role.Admin);
+  const isTeacher = useAuthStore((s) => s.role === Role.Teacher);
+  const isStudent = useAuthStore((s) => s.role === Role.Student);
+  const isUnauthorized = useAuthStore((s) => s.role === Role.Unauthorized);
 
   return {
     accessToken,
@@ -24,5 +26,6 @@ export function useAuth() {
     isAdmin,
     isTeacher,
     isStudent,
+    isUnauthorized,
   };
 }

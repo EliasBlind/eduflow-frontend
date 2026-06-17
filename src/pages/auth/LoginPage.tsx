@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+// Импортируем иконки
+import { Eye, EyeOff } from "lucide-react";
 
 import { useLogin } from "@/hooks/auth/useLogin";
 import { useAuth } from "@/hooks/auth/useAuth";
@@ -9,6 +11,8 @@ interface LocationState {
 }
 
 export default function LoginPage() {
+  const [showPassword, setShowPassword] = useState(false);
+
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
@@ -18,7 +22,6 @@ export default function LoginPage() {
   const [password, setPassword]     = useState("");
   const [formError, setFormError]   = useState<string | null>(null);
 
-  // Если уже залогинены — редирект
   useEffect(() => {
     if (isAuthenticated) {
       const state = location.state as LocationState | null;
@@ -35,7 +38,7 @@ export default function LoginPage() {
     return null;
   };
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
@@ -43,14 +46,9 @@ export default function LoginPage() {
     if (validationError) {
       setFormError(validationError);
       return;
-		}
-
-    try {
-      await login({ login: loginField.trim(), password });
-      // Редирект произойдёт в useEffect после смены isAuthenticated
-    } catch {
-      // Ошибка уже в стейте хука
     }
+
+    await login({ login: loginField.trim(), password });
   };
 
   const displayError = formError ?? error;
@@ -76,15 +74,27 @@ export default function LoginPage() {
 
           <div style={styles.field}>
             <label htmlFor="password" style={styles.label}>Пароль</label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              style={styles.input}
-            />
+            {/* Обертка для инпута и кнопки */}
+            <div style={styles.inputContainer}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                style={styles.inputPassword}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                disabled={loading}
+                style={styles.eyeButton}
+                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {displayError && (
@@ -151,6 +161,35 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 6,
     outline: "none",
     boxSizing: "border-box",
+  },
+  // Контейнер для позиционирования кнопки относительно инпута
+  inputContainer: {
+    position: "relative",
+    display: "flex",
+    alignItems: "center",
+  },
+  // Инпут с увеличенным правым отступом, чтобы текст не залезал под иконку
+  inputPassword: {
+    width: "100%",
+    padding: "10px 40px 10px 12px",
+    fontSize: 14,
+    border: "1px solid #d0d0d5",
+    borderRadius: 6,
+    outline: "none",
+    boxSizing: "border-box",
+  },
+  // Стили для абсолютного позиционирования кнопки-иконки
+  eyeButton: {
+    position: "absolute",
+    right: 12,
+    background: "none",
+    border: "none",
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "#6b7280",
+    padding: 0,
   },
   button: {
     width: "100%",

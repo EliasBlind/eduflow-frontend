@@ -1,34 +1,182 @@
-import { Link } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useLogout } from "@/hooks/auth/useLogout";
 
 /**
- * Dashboard — рендерит разный контент в зависимости от роли.
+ * Dashboard — вся навигация вынесена в боковую панель,
+ * которую можно открывать и закрывать.
  */
 export default function DashboardPage() {
-  const { user, role, isAdmin, isTeacher, isStudent } = useAuth();
+  const { user, role, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
   const { logout } = useLogout();
+  const { pathname } = useLocation();
+
+  const [open, setOpen] = useState(true);
+  const [width, setWidth] = useState(SIDEBAR_WIDTH);
+  const [resizing, setResizing] = useState(false);
+
+  // Перетаскивание разделителя
+  const startResize = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setResizing(true);
+  }, []);
+
+  useEffect(() => {
+    if (!resizing) return;
+
+    const onMove = (e: MouseEvent) => {
+      const next = Math.min(
+        MAX_WIDTH,
+        Math.max(MIN_WIDTH, e.clientX),
+      );
+      setWidth(next);
+    };
+    const onUp = () => setResizing(false);
+
+    // Пока тянем — блокируем выделение текста и ставим ресайз-курсор
+    const prevCursor = document.body.style.cursor;
+    const prevSelect = document.body.style.userSelect;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = prevCursor;
+      document.body.style.userSelect = prevSelect;
+    };
+  }, [resizing]);
+
+  // Пункты меню в зависимости от роли
+  const navItems: NavItemProps[] = [];
+
+  if (isAdmin) {
+    navItems.push(
+      { to: "/admin/teaching-load", label: "Учебная нагрузка", icon: "📚" },
+      { to: "/admin/classes",       label: "Классы",           icon: "🏫" },
+      { to: "/admin/subjects",      label: "Предметы",         icon: "📖" },
+      { to: "/admin/status-codes",  label: "Статус-коды",      icon: "🔖" },
+    );
+  }
+
+  if (isTeacher) {
+    navItems.push(
+      { to: "/admin/classes", label: "Журналы (классы)", icon: "📝" },
+    );
+  }
+
+  if (isStudent && user?.id) {
+    navItems.push(
+      { to: `/students/${user.id}`, label: "Моя успеваемость", icon: "📈" },
+    );
+  }
 
   return (
     <div style={styles.wrapper}>
-      <header style={styles.header}>
-        <div>
-          <h1 style={styles.title}>EduFlow</h1>
-          <p style={styles.subtitle}>
-            {user?.login ?? "Пользователь"} ·{" "}
-            <span style={styles.role}>{role ?? "—"}</span>
-          </p>
+      {/* ── Боковая панель ──────────────────────────────── */}
+      <aside
+        style={{
+          ...styles.sidebar,
+          width: open ? width : COLLAPSED_WIDTH,
+          // во время ресайза убираем transition, иначе панель «догоняет» курсор
+          transition: resizing ? "none" : "width 0.2s ease",
+        }}
+      >
+        <div style={styles.sidebarHeader}>
+          {open && <span style={styles.brand}>EduFlow</span>}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            style={styles.toggleBtn}
+            aria-label={open ? "Свернуть панель" : "Развернуть панель"}
+            title={open ? "Свернуть панель" : "Развернуть панель"}
+          >
+            {open ? "«" : "»"}
+          </button>
         </div>
-        <button onClick={logout} style={styles.logoutBtn}>
-          Выйти
-        </button>
-      </header>
 
+        <nav style={styles.nav}>
+          {navItems.map((item) => (
+            <NavItem
+              key={item.to}
+              {...item}
+              open={open}
+              active={pathname.startsWith(item.to)}
+            />
+          ))}
+
+          {isUnauthorized && open && (
+            <p style={styles.muted}>Роль не определена.</p>
+          )}
+        </nav>
+
+        {/* Низ панели: пользователь + выход */}
+        <div style={styles.sidebarFooter}>
+          {open && (
+            <div style={styles.userBox}>
+              <span style={styles.userName}>
+                { `Пользователь: ${user?.login}`}
+              </span>
+              <span style={styles.role}>{role ?? "—"}</span>
+            </div>
+          )}
+          <button
+            onClick={logout}
+            style={{ ...styles.logoutBtn, justifyContent: open ? "flex-start" : "center" }}
+            title="Выйти"
+          >
+            <span>⏏</span>
+            {open && <span>Выйти</span>}
+          </button>
+        </div>
+
+        {/* Разделитель: тянем курсором, чтобы менять ширину */}
+        {open && (
+          <div
+            onMouseDown={startResize}
+            onDoubleClick={() => setWidth(SIDEBAR_WIDTH)}
+            style={{
+              ...styles.resizer,
+              background: resizing ? "#2563eb" : "transparent",
+            }}
+            title="Потяните, чтобы изменить ширину (двойной клик — сброс)"
+            role="separator"
+            aria-orientation="vertical"
+          />
+        )}
+      </aside>
+
+      {/* ── Основной контент ────────────────────────────── */}
       <main style={styles.main}>
-        {isAdmin && <AdminDashboard />}
-        {isTeacher && !isAdmin && <TeacherDashboard />}
-        {isStudent && <StudentDashboard userId={user?.id} />}
-        {!isAdmin && !isTeacher && !isStudent && (
+        {isAdmin && <Welcome title="Администрирование" hint="Выберите раздел в боковой панели." />}
+        {isTeacher && (
+          <section>
+            <h2 style={styles.sectionTitle}>Журналы</h2>
+            <p style={styles.muted}>
+              Выберите класс на странице{" "}
+              <Link to="/admin/classes" style={styles.link}>
+                списка классов
+              </Link>{" "}
+              или перейдите по ссылке вида <code>/classes/:classId/journal</code>.
+            </p>
+          </section>
+        )}
+        {isStudent && (
+          <section>
+            <h2 style={styles.sectionTitle}>Моя успеваемость</h2>
+            {user?.id ? (
+              <Link to={`/students/${user.id}`} style={styles.primaryLink}>
+                Открыть мой профиль →
+              </Link>
+            ) : (
+              <p style={styles.muted}>Не удалось определить ваш профиль.</p>
+            )}
+          </section>
+        )}
+        {isUnauthorized && (
           <p style={styles.muted}>
             Роль не определена. Обратитесь к администратору.
           </p>
@@ -38,110 +186,152 @@ export default function DashboardPage() {
   );
 }
 
-// ── Admin ─────────────────────────────────────────────────────
+// ── Welcome ──────────────────────────────────────────────────
 
-function AdminDashboard() {
+function Welcome({ title, hint }: { title: string; hint: string }) {
   return (
     <section>
-      <h2 style={styles.sectionTitle}>Администрирование</h2>
-      <div style={styles.grid}>
-        <DashboardCard
-          to="/admin/teachers"
-          title="Учителя"
-          description="Список преподавателей, создание и редактирование"
-        />
-        <DashboardCard
-          to="/admin/teaching-load"
-          title="Учебная нагрузка"
-          description="Распределение предметов и классов между учителями"
-        />
-        <DashboardCard
-          to="/admin/classes"
-          title="Классы"
-          description="Управление классами учебного заведения"
-        />
-        <DashboardCard
-          to="/admin/subjects"
-          title="Предметы"
-          description="Справочник предметов"
-        />
-        <DashboardCard
-          to="/admin/status-codes"
-          title="Статус-коды"
-          description="Коды посещаемости: Н, Б и т.д."
-        />
-      </div>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+      <p style={styles.muted}>{hint}</p>
     </section>
   );
 }
 
-// ── Teacher ───────────────────────────────────────────────────
+// ── NavItem ──────────────────────────────────────────────────
 
-function TeacherDashboard() {
-  return (
-    <section>
-      <h2 style={styles.sectionTitle}>Журналы</h2>
-      <p style={styles.muted}>
-        Выберите класс на странице{" "}
-        <Link to="/admin/classes" style={styles.link}>
-          списка классов
-        </Link>{" "}
-        или перейдите по ссылке вида <code>/classes/:classId/journal</code>.
-      </p>
-    </section>
-  );
+interface NavItemProps {
+  to:     string;
+  label:  string;
+  icon:   string;
 }
 
-// ── Student ───────────────────────────────────────────────────
-
-function StudentDashboard({ userId }: { userId?: string }) {
+function NavItem({
+  to,
+  label,
+  icon,
+  open,
+  active,
+}: NavItemProps & { open: boolean; active: boolean }) {
   return (
-    <section>
-      <h2 style={styles.sectionTitle}>Моя успеваемость</h2>
-      {userId ? (
-        <Link to={`/students/${userId}`} style={styles.primaryLink}>
-          Открыть мой профиль →
-        </Link>
-      ) : (
-        <p style={styles.muted}>Не удалось определить ваш профиль.</p>
-      )}
-    </section>
-  );
-}
-
-// ── Card ──────────────────────────────────────────────────────
-
-interface DashboardCardProps {
-  to:          string;
-  title:       string;
-  description: string;
-}
-
-function DashboardCard({ to, title, description }: DashboardCardProps) {
-  return (
-    <Link to={to} style={styles.card}>
-      <h3 style={styles.cardTitle}>{title}</h3>
-      <p style={styles.cardDesc}>{description}</p>
+    <Link
+      to={to}
+      title={label}
+      style={{
+        ...styles.navItem,
+        ...(active ? styles.navItemActive : null),
+        justifyContent: open ? "flex-start" : "center",
+      }}
+    >
+      <span style={styles.navIcon}>{icon}</span>
+      {open && <span style={styles.navLabel}>{label}</span>}
     </Link>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
+// ── Styles ───────────────────────────────────────────────────
+
+const SIDEBAR_WIDTH = 240;
+const COLLAPSED_WIDTH = 64;
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 480;
 
 const styles: Record<string, React.CSSProperties> = {
-  wrapper: { minHeight: "100vh", background: "#f5f5f7" },
-  header: {
+  wrapper: {
     display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: "20px 32px",
-    background: "#fff",
-    borderBottom: "1px solid #e5e5ea",
+    minHeight: "100vh",
+    background: "#f5f5f7",
   },
-  title: { margin: 0, fontSize: 22, fontWeight: 600 },
-  subtitle: { margin: "4px 0 0", fontSize: 13, color: "#666" },
+
+  // Sidebar
+  sidebar: {
+    display: "flex",
+    flexDirection: "column",
+    background: "#fff",
+    borderRight: "1px solid #e5e5ea",
+    transition: "width 0.2s ease",
+    overflow: "hidden",
+    flexShrink: 0,
+    position: "sticky",
+    top: 0,
+    height: "100vh",
+  },
+  sidebarHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 12px",
+    borderBottom: "1px solid #e5e5ea",
+    minHeight: 56,
+    boxSizing: "border-box",
+  },
+  brand: { fontSize: 20, fontWeight: 600, whiteSpace: "nowrap" },
+  toggleBtn: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    background: "#f5f5f7",
+    border: "1px solid #e5e5ea",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 16,
+    lineHeight: 1,
+    color: "#444",
+  },
+  nav: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: 8,
+    overflowY: "auto",
+  },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 12px",
+    borderRadius: 8,
+    textDecoration: "none",
+    color: "#1a1a1a",
+    fontSize: 14,
+    whiteSpace: "nowrap",
+  },
+  navItemActive: {
+    background: "#eef2ff",
+    color: "#3730a3",
+    fontWeight: 600,
+  },
+  navIcon: { fontSize: 18, width: 20, textAlign: "center", flexShrink: 0 },
+  navLabel: { overflow: "hidden", textOverflow: "ellipsis" },
+
+  resizer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 6,
+    height: "100%",
+    cursor: "col-resize",
+    transition: "background 0.15s ease",
+    zIndex: 10,
+  },
+
+  sidebarFooter: {
+    borderTop: "1px solid #e5e5ea",
+    padding: 8,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  userBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "4px 8px",
+  },
+  userName: { fontSize: 13, fontWeight: 500, color: "#1a1a1a" },
   role: {
     display: "inline-block",
+    alignSelf: "flex-start",
     padding: "1px 8px",
     background: "#eef2ff",
     color: "#3730a3",
@@ -150,37 +340,22 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
   },
   logoutBtn: {
-    padding: "8px 16px",
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 12px",
     background: "#fff",
     color: "#b00020",
     border: "1px solid #fbb",
-    borderRadius: 6,
+    borderRadius: 8,
     cursor: "pointer",
     fontSize: 14,
+    whiteSpace: "nowrap",
   },
-  main: { padding: 32, maxWidth: 1200, margin: "0 auto" },
+
+  // Main
+  main: { flex: 1, padding: 32, maxWidth: 1200 },
   sectionTitle: { margin: "0 0 16px", fontSize: 18, fontWeight: 600 },
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-    gap: 16,
-  },
-  card: {
-    display: "block",
-    padding: 20,
-    background: "#fff",
-    border: "1px solid #e5e5ea",
-    borderRadius: 8,
-    textDecoration: "none",
-    color: "inherit",
-  },
-  cardTitle: {
-    margin: "0 0 6px",
-    fontSize: 16,
-    fontWeight: 600,
-    color: "#1a1a1a",
-  },
-  cardDesc: { margin: 0, fontSize: 13, color: "#666", lineHeight: 1.5 },
   muted: { color: "#666", fontSize: 14 },
   link: { color: "#2563eb", textDecoration: "none" },
   primaryLink: {
@@ -194,3 +369,4 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
   },
 };
+

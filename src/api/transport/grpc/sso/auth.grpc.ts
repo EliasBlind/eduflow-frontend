@@ -4,19 +4,19 @@
 
 import { rpc } from "../_client";
 import { AuthClientImpl } from "../../../gen/sso/sso";
-import type {
-  RegisterRequest,
-  RegisterResponse,
-  VerifyRequest,
-  TokenPair,
-  LoginRequest,
-  LogoutRequest,
-  LogoutResponse,
-  RefreshRequest,
-  ListUsersRequest,
-  ListUsersResponse,
-  SetRoleRequest,
-  User,
+import {
+  type RegisterRequest,
+  type RegisterResponse,
+  type VerifyRequest,
+  type TokenPair,
+  type LoginRequest,
+  type LogoutRequest,
+  type LogoutResponse,
+  type RefreshRequest,
+  type ListUsersRequest,
+  type ListUsersResponse,
+  type SetRoleRequest,
+  type User,
 } from "../../../gen/sso/sso";
 import type { Empty } from "../../../gen/sso/google/protobuf/empty";
 
@@ -60,6 +60,6 @@ export async function setRole(req: SetRoleRequest): Promise<Empty> {
 }
 
 /** Создать студента напрямую (без регистрации). Требует роль admin в JWT. */
-export async function createStudent(req: User): Promise<Empty> {
-  return client.CreateStudent(req);
+export async function createUsers(req: User[]): Promise<Empty> {
+  return client.CreateUsers({users: req});
 }

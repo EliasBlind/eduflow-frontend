@@ -23,6 +23,7 @@ export function useLogin(): UseLoginReturn {
   const [error,   setError  ] = useState<string | null>(null);
 
   const setTokens = useAuthStore((s) => s.setTokens);
+  const setUser = useAuthStore((s) => s.setUser);
 
   const login = async ({ login, password, appId = 1 }: LoginParams) => {
     setLoading(true);
@@ -31,6 +32,7 @@ export function useLogin(): UseLoginReturn {
     try {
       const tokens = await auth.login({ login, password, appId });
       setTokens(tokens);
+      setUser({login: login});
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ошибка входа");
       throw err;

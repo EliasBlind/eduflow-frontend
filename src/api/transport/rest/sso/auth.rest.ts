@@ -55,7 +55,7 @@ export function setRole(req: SetRoleRequest): Promise<void> {
   return http.post(`/v1/users/${userId}/role`, body);
 }
 
-/** POST /v1/students */
-export function createStudent(req: User): Promise<void> {
-  return http.post("/v1/students", req);
+/** POST /v1/create_users */
+export function createUsers(req: User[]): Promise<void> {
+  return http.post("/v1/create_users", {users: req});
 }

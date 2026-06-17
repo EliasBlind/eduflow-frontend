@@ -1,71 +1,91 @@
 import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
-import { useAuthStore, selectIsAdmin, selectIsTeacher } from "@/storage/auth.store";
+import { useAuthStore } from "@/storage/auth.store";
 
-// ── Страницы (заглушки — замените на реальные импорты) ────────
-// Auth
+// ── Страницы ──────────────────────────────────────────────────
 import LoginPage         from "@/pages/auth/LoginPage";
 import RegisterPage      from "@/pages/auth/RegisterPage";
 import VerifyEmailPage   from "@/pages/auth/VerifyEmailPage";
 
-// Journal
 import DashboardPage     from "@/pages/journal/DashboardPage";
 import ClassJournalPage  from "@/pages/journal/ClassJournalPage";
 import StudentPage       from "@/pages/journal/StudentPage";
 
-// Admin
-import TeachersPage      from "@/pages/admin/TeachersPage";
 import TeachingLoadPage  from "@/pages/admin/TeachingLoadPage";
 import ClassesPage       from "@/pages/admin/ClassesPage";
 import SubjectsPage      from "@/pages/admin/SubjectsPage";
 import StatusCodesPage   from "@/pages/admin/StatusCodesPage";
 
-// Misc
-import  NotFoundPage      from "@/pages/NotFoundPage";
+import NotFoundPage      from "@/pages/NotFoundPage";
+import { Role } from "@/domain/person";
+import { AuthStatus } from '@/domain/authStatus';
+
+
+// ── Заглушка лоадера — замени на свой ─────────────────────────
+function AuthPending() {
+  return <div className="auth-pending">Загрузка…</div>;
+}
 
 
 // ── Guards ────────────────────────────────────────────────────
 
 /**
  * Пускает только аутентифицированных.
- * Неавторизованных — на /login.
+ * Пока идёт рехидрация/рефреш (status === AuthStatus.Pending) — показывает лоадер,
+ * НЕ редиректит, иначе разлогинит во время обновления токена.
  */
 function AuthGuard() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
-}
+  const status = useAuthStore((s) => s.status);
 
-/**
- * Пускает только администраторов.
- * Остальных — на /dashboard.
- */
-function AdminGuard() {
-  const isAdmin = useAuthStore(selectIsAdmin);
-  return isAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
-}
-
-/**
- * Пускает администраторов и учителей.
- * Учеников — на /dashboard.
- */
-function TeacherGuard() {
-  const isTeacher = useAuthStore(selectIsTeacher);
-  const isAdmin   = useAuthStore(selectIsAdmin);
-  return isTeacher || isAdmin ? <Outlet /> : <Navigate to="/dashboard" replace />;
+  if (status === AuthStatus.Pending) return <AuthPending />;
+  if (status === AuthStatus.Unauthenticated) return <Navigate to="/auth/login" replace />;
+  return <Outlet />;
 }
 
 /**
  * Перенаправляет уже авторизованных со страниц auth обратно в приложение.
+ * Во время pending тоже ждём — чтобы гость не успел увидеть форму логина
+ * за миг до того, как рефреш поднимет сессию.
  */
 function GuestGuard() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  return isAuthenticated ? <Navigate to="/dashboard" replace /> : <Outlet />;
+  const status = useAuthStore((s) => s.status);
+
+  if (status === AuthStatus.Pending) return <AuthPending />;
+  if (status === AuthStatus.Authenticated) return <Navigate to="/dashboard" replace />; // ← было Unauthenticated
+  return <Outlet />;
+}
+
+/**
+ * Пускает администраторов и учителей. Остальных — на /dashboard.
+ * Роль проверяем только когда сессия уже подтверждена — иначе во время
+ * pending role ещё Unauthorized, и мы бы зря редиректнули.
+ */
+function TeacherGuard() {
+  const status = useAuthStore((s) => s.status);
+  const role   = useAuthStore((s) => s.role);
+
+  if (status === AuthStatus.Pending) return <AuthPending />;
+  return role === Role.Teacher || role === Role.Admin
+    ? <Outlet />
+    : <Navigate to="/dashboard" replace />;
+}
+
+/**
+ * Пускает только администраторов. Остальных — на /dashboard.
+ */
+function AdminGuard() {
+  const status = useAuthStore((s) => s.status);
+  const role   = useAuthStore((s) => s.role);
+
+  if (status === AuthStatus.Pending) return <AuthPending />;
+  return role === Role.Admin
+    ? <Outlet />
+    : <Navigate to="/dashboard" replace />;
 }
 
 
 // ── Router ────────────────────────────────────────────────────
 
 const router = createBrowserRouter([
-  // ── Публичные маршруты (только для гостей) ─────────────────
   {
     element: <GuestGuard />,
     children: [
@@ -75,18 +95,12 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── Защищённые маршруты ────────────────────────────────────
   {
     element: <AuthGuard />,
     children: [
-
-      // Главная — редирект на dashboard
       { path: "/", element: <Navigate to="/dashboard" replace /> },
-
-      // Dashboard — для всех ролей (сам компонент рендерит нужный вид)
       { path: "/dashboard", element: <DashboardPage /> },
 
-      // ── Журнал (учитель + admin) ───────────────────────────
       {
         element: <TeacherGuard />,
         children: [
@@ -95,11 +109,9 @@ const router = createBrowserRouter([
         ],
       },
 
-      // ── Администрирование (только admin) ───────────────────
       {
         element: <AdminGuard />,
         children: [
-          { path: "/admin/teachers",      element: <TeachersPage     /> },
           { path: "/admin/teaching-load", element: <TeachingLoadPage /> },
           { path: "/admin/classes",       element: <ClassesPage      /> },
           { path: "/admin/subjects",      element: <SubjectsPage     /> },
@@ -109,13 +121,11 @@ const router = createBrowserRouter([
     ],
   },
 
-  // ── 404 ────────────────────────────────────────────────────
   { path: "*", element: <NotFoundPage /> },
 ]);
 
 
-// ── Export ────────────────────────────────────────────────────
-
 export function AppRouter() {
   return <RouterProvider router={router} />;
 }
+
