@@ -14,6 +14,7 @@ import TeachingLoadPage  from "@/pages/admin/TeachingLoadPage";
 import ClassesPage       from "@/pages/admin/ClassesPage";
 import SubjectsPage      from "@/pages/admin/SubjectsPage";
 import StatusCodesPage   from "@/pages/admin/StatusCodesPage";
+ import UsersPage        from "@/pages/admin/UsersPage";
 
 import NotFoundPage      from "@/pages/NotFoundPage";
 import { Role } from "@/domain/person";
@@ -116,6 +117,7 @@ const router = createBrowserRouter([
           { path: "/admin/classes",       element: <ClassesPage      /> },
           { path: "/admin/subjects",      element: <SubjectsPage     /> },
           { path: "/admin/status-codes",  element: <StatusCodesPage  /> },
+          { path: "/admin/users", element: <UsersPage /> },
         ],
       },
     ],

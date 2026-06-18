@@ -56,6 +56,7 @@ export default function DashboardPage() {
 
   if (isAdmin) {
     navItems.push(
+      { to: "/admin/users",         label: "Пользователи",     icon: "👥" },
       { to: "/admin/teaching-load", label: "Учебная нагрузка", icon: "📚" },
       { to: "/admin/classes",       label: "Классы",           icon: "🏫" },
       { to: "/admin/subjects",      label: "Предметы",         icon: "📖" },

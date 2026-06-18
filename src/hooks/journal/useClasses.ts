@@ -9,10 +9,11 @@ import type {
 import { useQuery    } from "./useQuery";
 import { useMutation } from "./useMutation";
 
-export function useClasses(params: ListClassesRequest = {}) {
+const EMPTY_LIST_PARAMS: ListClassesRequest = {};
+
+export function useClasses(params: ListClassesRequest = EMPTY_LIST_PARAMS) {
   return useQuery(() => classes.listClasses(params), { deps: [params] });
 }
-
 export function useClass(params: GetClassRequest) {
   return useQuery(() => classes.getClass(params), {
     skip: !params.id,

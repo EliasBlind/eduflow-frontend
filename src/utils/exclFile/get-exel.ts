@@ -60,7 +60,7 @@ export class ExelFile {
         const normalizedKey = key.trim().toLowerCase();
         const targetProperty = COLUMN_MAPPING[normalizedKey];
 
-        if (!targetProperty) return new Person();
+        if (!targetProperty) continue;
 
         const stringValue = String(value).trim();
 

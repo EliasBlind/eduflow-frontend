@@ -74,16 +74,25 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       setTokens: (pair) => {
         const decoded = decodeJWT(pair.accessToken);
-        const updatedState: Partial<AuthState> = {
-          id:              decoded?.Id ?? null,
+        const id   = decoded?.Id ?? null;
+        const role = decoded?.Role ?? Role.Unauthorized;
+
+        set((state) => ({
+          id,
           exp:             decoded?.exp ?? null,
           accessToken:     pair.accessToken,
           refreshToken:    pair.refreshToken,
           isAuthenticated: true,
           status:          AuthStatus.Authenticated,
-          role:            decoded?.Role ?? Role.Unauthorized,
-        };
-        set(updatedState);
+          role,
+          // мёржим id/role в user, не затирая то, что уже могло быть (login, fullName и т.п.)
+          user: {
+            ...(state.user ?? {}),
+            ...(id ? { id } : {}),
+            role,
+          } as User,
+        }));
+
         runTokenUpdateCallback(get());
       },
 

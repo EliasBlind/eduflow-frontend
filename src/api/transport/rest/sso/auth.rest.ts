@@ -12,10 +12,12 @@ import type {
   LogoutRequest,
   LogoutResponse,
   RefreshRequest,
+  ListUsersRequest,
   ListUsersResponse,
   SetRoleRequest,
   User,
 } from "../../../gen/sso/sso";
+import type { Empty } from "../../../gen/sso/google/protobuf/empty";
 
 /** POST /v1/auth/register */
 export function register(req: RegisterRequest): Promise<RegisterResponse> {
@@ -45,17 +47,19 @@ export function refreshToken(req: RefreshRequest): Promise<TokenPair> {
 // ── Admin-only ────────────────────────────────────────────────
 
 /** GET /v1/users */
-export function listUsers(): Promise<ListUsersResponse> {
+// req нужен только для совпадения сигнатуры с gRPC-транспортом; у GET тела/параметров нет.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function listUsers(_req: ListUsersRequest = {}): Promise<ListUsersResponse> {
   return http.get("/v1/users");
 }
 
 /** POST /v1/users/{user_id}/role */
-export function setRole(req: SetRoleRequest): Promise<void> {
+export function setRole(req: SetRoleRequest): Promise<Empty> {
   const { userId, ...body } = req;
   return http.post(`/v1/users/${userId}/role`, body);
 }
 
 /** POST /v1/create_users */
-export function createUsers(req: User[]): Promise<void> {
-  return http.post("/v1/create_users", {users: req});
+export function createUsers(req: User[]): Promise<Empty> {
+  return http.post("/v1/create_users", { users: req });
 }

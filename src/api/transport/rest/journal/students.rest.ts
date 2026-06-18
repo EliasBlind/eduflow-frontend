@@ -12,6 +12,7 @@ import type {
   Student,
   DeleteStudentRequest,
 } from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/students */
 export function createStudent(req: CreateStudentRequest): Promise<Student> {
@@ -24,9 +25,11 @@ export function getStudent(req: GetStudentRequest): Promise<Student> {
 }
 
 /** GET /v1/students/unassigned */
+// req нужен только для совпадения сигнатуры с gRPC; ListStudentsWithoutClassRequest пустой.
 export function listStudentsWithoutClass(): Promise<ListStudentsResponse> {
   return http.get("/v1/students/unassigned");
 }
+
 
 /** GET /v1/classes/{class_id}/students */
 export function listStudents(req: ListStudentsRequest): Promise<ListStudentsResponse> {
@@ -41,6 +44,6 @@ export function updateStudent(req: UpdateStudentRequest): Promise<Student> {
 }
 
 /** DELETE /v1/students/{id} */
-export function deleteStudent(req: DeleteStudentRequest): Promise<void> {
+export function deleteStudent(req: DeleteStudentRequest): Promise<Empty> {
   return http.delete(`/v1/students/${req.id}`);
 }

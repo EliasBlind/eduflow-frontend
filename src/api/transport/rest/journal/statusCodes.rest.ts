@@ -6,10 +6,12 @@ import { http } from "../_client";
 import type {
   CreateStatusCodeRequest,
   UpdateStatusCodeRequest,
+  ListStatusCodeRequest,
   ListStatusCodeResponse,
   StatusCode,
   DeleteStatusCodeRequest,
 } from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/status-codes */
 export function createStatusCode(req: CreateStatusCodeRequest): Promise<StatusCode> {
@@ -17,7 +19,9 @@ export function createStatusCode(req: CreateStatusCodeRequest): Promise<StatusCo
 }
 
 /** GET /v1/status-codes */
-export function listStatusCode(): Promise<ListStatusCodeResponse> {
+// req нужен только для совпадения сигнатуры с gRPC; ListStatusCodeRequest пустой.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function listStatusCode(_req: ListStatusCodeRequest = {}): Promise<ListStatusCodeResponse> {
   return http.get("/v1/status-codes");
 }
 
@@ -28,6 +32,6 @@ export function updateStatusCode(req: UpdateStatusCodeRequest): Promise<StatusCo
 }
 
 /** DELETE /v1/status-codes/{id} */
-export function deleteStatusCode(req: DeleteStatusCodeRequest): Promise<void> {
+export function deleteStatusCode(req: DeleteStatusCodeRequest): Promise<Empty> {
   return http.delete(`/v1/status-codes/${req.id}`);
 }

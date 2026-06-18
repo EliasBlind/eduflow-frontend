@@ -1,8 +1,10 @@
 /**
  * REST-клиент для сервиса GradesService (journal.proto)
  *
- * oneof filter { grade | statusCodeId } и { studentId | classId }
- * сериализуются в JSON как обычные поля — сервер разберёт по наличию ключа.
+ * Сгенерированные ts-proto типы:
+ *   - google.protobuf.Timestamp -> JS Date (JSON.stringify сам отдаёт ISO-строку);
+ *   - oneof развёрнут в плоские опциональные поля (grade?/statusCodeId?,
+ *     studentId?/classId?) — отдельного объекта filter нет.
  */
 
 import { http } from "../_client";
@@ -14,29 +16,26 @@ import type {
   DeleteGradeRequest,
   Grade,
 } from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/grades */
 export function recordGrade(req: RecordGradeRequest): Promise<Grade> {
+  // dateOfGrade (Date) сериализуется JSON.stringify в ISO; oneof-поля уже плоские.
   return http.post("/v1/grades", req);
 }
 
 /**
  * GET /v1/grades
- * Параметры передаются как query-string.
- * oneof-поля (studentId/classId, grade/statusCodeId) — обычные query-параметры.
+ * Timestamp -> ISO-строка; oneof studentId/classId — обычные query-параметры.
  */
 export function listGrades(req: ListGradesRequest): Promise<ListGradesResponse> {
-  // Timestamp → ISO-строка для query
-  const params: Record<string, string | number | undefined> = {
+  return http.get("/v1/grades", {
     subject_id: req.subjectId,
-    start: req.start ? new Date(Number(req.start.seconds) * 1000).toISOString() : undefined,
-    end: req.end ? new Date(Number(req.end.seconds) * 1000).toISOString() : undefined,
-  };
-
-  if (req.filter?.$case === "studentId") params.student_id = req.filter.studentId;
-  if (req.filter?.$case === "classId") params.class_id = req.filter.classId;
-
-  return http.get("/v1/grades", params);
+    student_id: req.studentId,
+    class_id: req.classId,
+    start: req.start?.toISOString(),
+    end: req.end?.toISOString(),
+  });
 }
 
 /** PUT /v1/grades/{id} */
@@ -46,6 +45,6 @@ export function updateGrade(req: UpdateGradeRequest): Promise<Grade> {
 }
 
 /** DELETE /v1/grades/{id} */
-export function deleteGrade(req: DeleteGradeRequest): Promise<void> {
+export function deleteGrade(req: DeleteGradeRequest): Promise<Empty> {
   return http.delete(`/v1/grades/${req.id}`);
 }

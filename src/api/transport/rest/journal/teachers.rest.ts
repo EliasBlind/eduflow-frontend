@@ -11,6 +11,7 @@ import type {
   DeleteTeacherRequest,
   Teacher,
 } from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/teachers */
 export function createTeacher(req: CreateTeacherRequest): Promise<Teacher> {
@@ -30,6 +31,6 @@ export function updateTeacher(req: UpdateTeacherRequest): Promise<Teacher> {
 }
 
 /** DELETE /v1/teachers/{id} */
-export function deleteTeacher(req: DeleteTeacherRequest): Promise<void> {
+export function deleteTeacher(req: DeleteTeacherRequest): Promise<Empty> {
   return http.delete(`/v1/teachers/${req.id}`);
 }

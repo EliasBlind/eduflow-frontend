@@ -6,6 +6,7 @@ import { useAuthStore } from "@/storage/auth.store";
  * Возвращает состояние и флаги ролей.
  */
 export function useAuth() {
+  const id              = useAuthStore((s) => s.id);
   const accessToken     = useAuthStore((s) => s.accessToken);
   const refreshToken    = useAuthStore((s) => s.refreshToken);
   const user            = useAuthStore((s) => s.user);
@@ -18,6 +19,7 @@ export function useAuth() {
   const isUnauthorized = useAuthStore((s) => s.role === Role.Unauthorized);
 
   return {
+    id,
     accessToken,
     refreshToken,
     user,

@@ -6,10 +6,12 @@ import { http } from "../_client";
 import type {
   CreateSubjectRequest,
   UpdateSubjectRequest,
+  ListSubjectsRequest,
   ListSubjectsResponse,
   Subject,
-  DeleteSubjectRequest
+  DeleteSubjectRequest,
 } from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/subjects */
 export function createSubject(req: CreateSubjectRequest): Promise<Subject> {
@@ -17,7 +19,9 @@ export function createSubject(req: CreateSubjectRequest): Promise<Subject> {
 }
 
 /** GET /v1/subjects */
-export function listSubjects(): Promise<ListSubjectsResponse> {
+// req нужен только для совпадения сигнатуры с gRPC; ListSubjectsRequest пустой.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function listSubjects(_req: ListSubjectsRequest = {}): Promise<ListSubjectsResponse> {
   return http.get("/v1/subjects");
 }
 
@@ -28,6 +32,6 @@ export function updateSubject(req: UpdateSubjectRequest): Promise<Subject> {
 }
 
 /** DELETE /v1/subjects/{id} */
-export function deleteSubject(req: DeleteSubjectRequest): Promise<void> {
+export function deleteSubject(req: DeleteSubjectRequest): Promise<Empty> {
   return http.delete(`/v1/subjects/${req.id}`);
 }

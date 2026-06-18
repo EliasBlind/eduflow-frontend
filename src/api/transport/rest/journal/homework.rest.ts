@@ -1,5 +1,8 @@
 /**
  * REST-клиент для сервиса HomeworkService (journal.proto)
+ *
+ * start/end — google.protobuf.Timestamp, в ts-proto это JS Date.
+ * В теле JSON.stringify сам отдаёт ISO-строку; для query вызываем toISOString().
  */
 
 import { http } from "../_client";
@@ -10,7 +13,8 @@ import type {
   ListHomeworkResponse,
   Homework,
   DeleteHomeworkRequest,
-} from "@/api/gen/journal/journal";
+} from "../../../gen/journal/journal";
+import type { Empty } from "../../../gen/journal/google/protobuf/empty";
 
 /** POST /v1/homework */
 export function recordHomework(req: RecordHomeworkRequest): Promise<Homework> {
@@ -23,20 +27,17 @@ export function updateHomework(req: UpdateHomeworkRequest): Promise<Homework> {
   return http.put(`/v1/homework/${id}`, body);
 }
 
-/**
- * GET /v1/classes/{class_id}/homework
- * start/end — Timestamp, передаём как ISO-строки в query.
- */
+/** GET /v1/classes/{class_id}/homework */
 export function listHomework(req: ListHomeworkRequest): Promise<ListHomeworkResponse> {
   const { classId, subjectId, start, end } = req;
   return http.get(`/v1/classes/${classId}/homework`, {
     subject_id: subjectId,
-    start: start ? new Date(Number(start.seconds) * 1000).toISOString() : undefined,
-    end: end ? new Date(Number(end.seconds) * 1000).toISOString() : undefined,
+    start: start?.toISOString(),
+    end: end?.toISOString(),
   });
 }
 
 /** DELETE /v1/homework/{id} */
-export function deleteHomework(req: DeleteHomeworkRequest): Promise<void> {
+export function deleteHomework(req: DeleteHomeworkRequest): Promise<Empty> {
   return http.delete(`/v1/homework/${req.id}`);
 }
