@@ -74,24 +74,27 @@ export const useAuthStore = create<AuthState & AuthActions>()(
 
       setTokens: (pair) => {
         const decoded = decodeJWT(pair.accessToken);
-        const id   = decoded?.Id ?? null;
-        const role = decoded?.Role ?? Role.Unauthorized;
+        const id = decoded?.Id ?? get().id;
 
-        set((state) => ({
-          id,
-          exp:             decoded?.exp ?? null,
-          accessToken:     pair.accessToken,
-          refreshToken:    pair.refreshToken,
-          isAuthenticated: true,
-          status:          AuthStatus.Authenticated,
-          role,
-          // мёржим id/role в user, не затирая то, что уже могло быть (login, fullName и т.п.)
-          user: {
-            ...(state.user ?? {}),
-            ...(id ? { id } : {}),
+        // в setTokens, сразу после decodeJWT
+        console.log("[setTokens] decoded.Role=%o typeof=%s", decoded?.Role, typeof decoded?.Role);
+        set((state) => {
+          const role = decoded?.Role || state.role || Role.Unauthorized;
+          return {
+            id,
+            exp:             decoded?.exp ?? null,
+            accessToken:     pair.accessToken,
+            refreshToken:    pair.refreshToken,
+            isAuthenticated: true,
+            status:          AuthStatus.Authenticated,
             role,
-          } as User,
-        }));
+            user: {
+              ...(state.user ?? {}),
+              ...(id ? { id } : {}),
+              role,
+            } as User,
+          };
+        });
 
         runTokenUpdateCallback(get());
       },
@@ -173,7 +176,14 @@ function bootstrapAuth(): void {
   const state = useAuthStore.getState();
 
   if (!isExpired(state.exp)) {
-    useAuthStore.setState({ isAuthenticated: true, status: AuthStatus.Authenticated });
+    // восстановим роль из access-токена, а не только флаги
+    const decoded = state.accessToken ? decodeJWT(state.accessToken) : null;
+    useAuthStore.setState({
+      isAuthenticated: true,
+      status: AuthStatus.Authenticated,
+      role: decoded?.Role ?? state.role,
+      id:   decoded?.Id   ?? state.id,
+    });
     return;
   }
 

@@ -8,10 +8,16 @@ import type {
 import { useQuery    } from "./useQuery";
 import { useMutation } from "./useMutation";
 
-export function useHomeworkList(params: ListHomeworkRequest) {
+export function useHomeworkList(
+  params: ListHomeworkRequest,
+  options: { skip?: boolean } = {},
+) {
   return useQuery(
     () => homework.listHomework(params),
-    { deps: [params.classId, params.subjectId, params.start, params.end] },
+    {
+      skip: options.skip ?? !params.classId,
+      deps: [params.classId, params.subjectId, params.start, params.end, options.skip],
+    },
   );
 }
 

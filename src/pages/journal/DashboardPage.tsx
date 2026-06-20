@@ -1,40 +1,37 @@
-import { useState, useEffect, useCallback } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useState, useEffect, useCallback, memo } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useLogout } from "@/hooks/auth/useLogout";
 
-/**
- * Dashboard — вся навигация вынесена в боковую панель,
- * которую можно открывать и закрывать.
- */
-export default function DashboardPage() {
-  const { user, role, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
-  const { logout } = useLogout();
-  const { pathname } = useLocation();
+// -----------------------------------------------------------------------------
+// Constants
+// -----------------------------------------------------------------------------
+const SIDEBAR_WIDTH = 240;
+const COLLAPSED_WIDTH = 64;
+const MIN_WIDTH = 180;
+const MAX_WIDTH = 480;
 
-  const [open, setOpen] = useState(true);
-  const [width, setWidth] = useState(SIDEBAR_WIDTH);
-  const [resizing, setResizing] = useState(false);
+// -----------------------------------------------------------------------------
+// Custom hook: управление ресайзом боковой панели
+// -----------------------------------------------------------------------------
+const useSidebarResize = (initialWidth: number) => {
+  const [width, setWidth] = useState(initialWidth);
+  const [isResizing, setIsResizing] = useState(false);
 
-  // Перетаскивание разделителя
   const startResize = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
-    setResizing(true);
+    setIsResizing(true);
   }, []);
 
   useEffect(() => {
-    if (!resizing) return;
+    if (!isResizing) return;
 
     const onMove = (e: MouseEvent) => {
-      const next = Math.min(
-        MAX_WIDTH,
-        Math.max(MIN_WIDTH, e.clientX),
-      );
+      const next = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
       setWidth(next);
     };
-    const onUp = () => setResizing(false);
+    const onUp = () => setIsResizing(false);
 
-    // Пока тянем — блокируем выделение текста и ставим ресайз-курсор
     const prevCursor = document.body.style.cursor;
     const prevSelect = document.body.style.userSelect;
     document.body.style.cursor = "col-resize";
@@ -49,48 +46,111 @@ export default function DashboardPage() {
       document.body.style.cursor = prevCursor;
       document.body.style.userSelect = prevSelect;
     };
-  }, [resizing]);
+  }, [isResizing]);
 
-  // Пункты меню в зависимости от роли
-  const navItems: NavItemProps[] = [];
+  const resetWidth = useCallback(() => setWidth(SIDEBAR_WIDTH), []);
+
+  return { width, isResizing, startResize, resetWidth };
+};
+
+// -----------------------------------------------------------------------------
+// Компоненты
+// -----------------------------------------------------------------------------
+
+interface NavItemProps {
+  to: string;
+  label: string;
+  icon: string;
+  open: boolean;
+  active: boolean;
+}
+
+const NavItem = memo(({ to, label, icon, open, active }: NavItemProps) => {
+  return (
+    <Link
+      to={to}
+      title={label}
+      style={{
+        ...styles.navItem,
+        ...(active ? styles.navItemActive : {}),
+        justifyContent: open ? "flex-start" : "center",
+      }}
+    >
+      <span style={styles.navIcon}>{icon}</span>
+      {open && <span style={styles.navLabel}>{label}</span>}
+    </Link>
+  );
+});
+
+NavItem.displayName = "NavItem";
+
+const Welcome = ({ title, hint }: { title: string; hint: string }) => (
+  <section>
+    <h2 style={styles.sectionTitle}>{title}</h2>
+    <p style={styles.muted}>{hint}</p>
+  </section>
+);
+
+// -----------------------------------------------------------------------------
+// Основной компонент
+// -----------------------------------------------------------------------------
+export default function DashboardPage() {
+  const { user, role, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
+  const { logout } = useLogout();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    // Делаем редирект только если пользователь находится на корневом /dashboard
+    // чтобы не зацикливать переходы, когда он ходит по внутренним вкладкам
+    if (pathname === "/dashboard" || pathname === "/") {
+      if (isTeacher) {
+        navigate("/classes/journal", { replace: true });
+      } else if (isStudent && user?.id) {
+        navigate(`/students/${user.id}`, { replace: true });
+      }
+    }
+  }, [isTeacher, isStudent, user, pathname, navigate]);
+
+  const [open, setOpen] = useState(true);
+  const { width, isResizing, startResize, resetWidth } =
+    useSidebarResize(SIDEBAR_WIDTH);
+
+  // Генерация пунктов меню – вычисляется каждый рендер (недорого)
+  const navItems: Omit<NavItemProps, "open" | "active">[] = [];
 
   if (isAdmin) {
     navItems.push(
-      { to: "/admin/users",         label: "Пользователи",     icon: "👥" },
+      { to: "/admin/users", label: "Пользователи", icon: "👥" },
       { to: "/admin/teaching-load", label: "Учебная нагрузка", icon: "📚" },
-      { to: "/admin/classes",       label: "Классы",           icon: "🏫" },
-      { to: "/admin/subjects",      label: "Предметы",         icon: "📖" },
-      { to: "/admin/status-codes",  label: "Статус-коды",      icon: "🔖" },
+      { to: "/admin/classes", label: "Классы", icon: "🏫" },
+      { to: "/admin/subjects", label: "Предметы", icon: "📖" },
+      { to: "/admin/status-codes", label: "Статус-коды", icon: "🔖" },
     );
   }
 
-  if (isTeacher) {
-    navItems.push(
-      { to: "/admin/classes", label: "Журналы (классы)", icon: "📝" },
-    );
-  }
+  const toggleSidebar = useCallback(() => {
+    setOpen((prev) => !prev);
+  }, []);
 
-  if (isStudent && user?.id) {
-    navItems.push(
-      { to: `/students/${user.id}`, label: "Моя успеваемость", icon: "📈" },
-    );
-  }
+  const currentWidth = open ? width : COLLAPSED_WIDTH;
 
   return (
     <div style={styles.wrapper}>
-      {/* ── Боковая панель ──────────────────────────────── */}
+      {/* Боковая панель */}
       <aside
         style={{
           ...styles.sidebar,
-          width: open ? width : COLLAPSED_WIDTH,
-          // во время ресайза убираем transition, иначе панель «догоняет» курсор
-          transition: resizing ? "none" : "width 0.2s ease",
+          width: currentWidth,
+          transition: isResizing ? "none" : "width 0.2s ease",
         }}
+        aria-label="Боковая навигация"
       >
+        {/* Шапка панели */}
         <div style={styles.sidebarHeader}>
           {open && <span style={styles.brand}>EduFlow</span>}
           <button
-            onClick={() => setOpen((v) => !v)}
+            onClick={toggleSidebar}
             style={styles.toggleBtn}
             aria-label={open ? "Свернуть панель" : "Развернуть панель"}
             title={open ? "Свернуть панель" : "Развернуть панель"}
@@ -99,6 +159,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        {/* Навигация */}
         <nav style={styles.nav}>
           {navItems.map((item) => (
             <NavItem
@@ -108,25 +169,27 @@ export default function DashboardPage() {
               active={pathname.startsWith(item.to)}
             />
           ))}
-
           {isUnauthorized && open && (
             <p style={styles.muted}>Роль не определена.</p>
           )}
         </nav>
 
-        {/* Низ панели: пользователь + выход */}
+        {/* Нижняя часть панели: пользователь и выход */}
         <div style={styles.sidebarFooter}>
           {open && (
             <div style={styles.userBox}>
               <span style={styles.userName}>
-                { `Пользователь: ${user?.login}`}
+                Пользователь: {user?.login ?? "—"}
               </span>
               <span style={styles.role}>{role ?? "—"}</span>
             </div>
           )}
           <button
             onClick={logout}
-            style={{ ...styles.logoutBtn, justifyContent: open ? "flex-start" : "center" }}
+            style={{
+              ...styles.logoutBtn,
+              justifyContent: open ? "flex-start" : "center",
+            }}
             title="Выйти"
           >
             <span>⏏</span>
@@ -134,14 +197,14 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Разделитель: тянем курсором, чтобы менять ширину */}
+        {/* Ресайзер (разделитель) */}
         {open && (
           <div
             onMouseDown={startResize}
-            onDoubleClick={() => setWidth(SIDEBAR_WIDTH)}
+            onDoubleClick={resetWidth}
             style={{
               ...styles.resizer,
-              background: resizing ? "#2563eb" : "transparent",
+              background: isResizing ? "#2563eb" : "transparent",
             }}
             title="Потяните, чтобы изменить ширину (двойной клик — сброс)"
             role="separator"
@@ -150,9 +213,11 @@ export default function DashboardPage() {
         )}
       </aside>
 
-      {/* ── Основной контент ────────────────────────────── */}
+      {/* Основной контент */}
       <main style={styles.main}>
-        {isAdmin && <Welcome title="Администрирование" hint="Выберите раздел в боковой панели." />}
+        {isAdmin && (
+          <Welcome title="Администрирование" hint="Выберите раздел в боковой панели." />
+        )}
         {isTeacher && (
           <section>
             <h2 style={styles.sectionTitle}>Журналы</h2>
@@ -187,55 +252,9 @@ export default function DashboardPage() {
   );
 }
 
-// ── Welcome ──────────────────────────────────────────────────
-
-function Welcome({ title, hint }: { title: string; hint: string }) {
-  return (
-    <section>
-      <h2 style={styles.sectionTitle}>{title}</h2>
-      <p style={styles.muted}>{hint}</p>
-    </section>
-  );
-}
-
-// ── NavItem ──────────────────────────────────────────────────
-
-interface NavItemProps {
-  to:     string;
-  label:  string;
-  icon:   string;
-}
-
-function NavItem({
-  to,
-  label,
-  icon,
-  open,
-  active,
-}: NavItemProps & { open: boolean; active: boolean }) {
-  return (
-    <Link
-      to={to}
-      title={label}
-      style={{
-        ...styles.navItem,
-        ...(active ? styles.navItemActive : null),
-        justifyContent: open ? "flex-start" : "center",
-      }}
-    >
-      <span style={styles.navIcon}>{icon}</span>
-      {open && <span style={styles.navLabel}>{label}</span>}
-    </Link>
-  );
-}
-
-// ── Styles ───────────────────────────────────────────────────
-
-const SIDEBAR_WIDTH = 240;
-const COLLAPSED_WIDTH = 64;
-const MIN_WIDTH = 180;
-const MAX_WIDTH = 480;
-
+// -----------------------------------------------------------------------------
+// Стили
+// -----------------------------------------------------------------------------
 const styles: Record<string, React.CSSProperties> = {
   wrapper: {
     display: "flex",
@@ -243,13 +262,11 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#f5f5f7",
   },
 
-  // Sidebar
   sidebar: {
     display: "flex",
     flexDirection: "column",
     background: "#fff",
     borderRight: "1px solid #e5e5ea",
-    transition: "width 0.2s ease",
     overflow: "hidden",
     flexShrink: 0,
     position: "sticky",
@@ -265,7 +282,11 @@ const styles: Record<string, React.CSSProperties> = {
     minHeight: 56,
     boxSizing: "border-box",
   },
-  brand: { fontSize: 20, fontWeight: 600, whiteSpace: "nowrap" },
+  brand: {
+    fontSize: 20,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
   toggleBtn: {
     width: 32,
     height: 32,
@@ -302,8 +323,16 @@ const styles: Record<string, React.CSSProperties> = {
     color: "#3730a3",
     fontWeight: 600,
   },
-  navIcon: { fontSize: 18, width: 20, textAlign: "center", flexShrink: 0 },
-  navLabel: { overflow: "hidden", textOverflow: "ellipsis" },
+  navIcon: {
+    fontSize: 18,
+    width: 20,
+    textAlign: "center",
+    flexShrink: 0,
+  },
+  navLabel: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
 
   resizer: {
     position: "absolute",
@@ -329,7 +358,11 @@ const styles: Record<string, React.CSSProperties> = {
     gap: 4,
     padding: "4px 8px",
   },
-  userName: { fontSize: 13, fontWeight: 500, color: "#1a1a1a" },
+  userName: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "#1a1a1a",
+  },
   role: {
     display: "inline-block",
     alignSelf: "flex-start",
@@ -354,11 +387,24 @@ const styles: Record<string, React.CSSProperties> = {
     whiteSpace: "nowrap",
   },
 
-  // Main
-  main: { flex: 1, padding: 32, maxWidth: 1200 },
-  sectionTitle: { margin: "0 0 16px", fontSize: 18, fontWeight: 600 },
-  muted: { color: "#666", fontSize: 14 },
-  link: { color: "#2563eb", textDecoration: "none" },
+  main: {
+    flex: 1,
+    padding: 32,
+    maxWidth: 1200,
+  },
+  sectionTitle: {
+    margin: "0 0 16px",
+    fontSize: 18,
+    fontWeight: 600,
+  },
+  muted: {
+    color: "#666",
+    fontSize: 14,
+  },
+  link: {
+    color: "#2563eb",
+    textDecoration: "none",
+  },
   primaryLink: {
     display: "inline-block",
     padding: "10px 16px",
@@ -370,4 +416,3 @@ const styles: Record<string, React.CSSProperties> = {
     fontWeight: 500,
   },
 };
-

@@ -9,7 +9,9 @@ import type {
 import { useQuery    } from "./useQuery";
 import { useMutation } from "./useMutation";
 
-export function useTeachingLoads(params: ListTeachingLoadRequest = {}) {
+const EMPTY_TL_PARAMS: ListTeachingLoadRequest = {};
+
+export function useTeachingLoads(params: ListTeachingLoadRequest = EMPTY_TL_PARAMS) {
   return useQuery(() => teachingLoad.listTeachingLoad(params), { deps: [params] });
 }
 
@@ -29,6 +31,6 @@ export function useUpdateTeachingLoad() {
 }
 
 export function useDeleteTeachingLoad() {
-  return useMutation((params: DeleteTeachingLoadRequest) => 
+  return useMutation((params: DeleteTeachingLoadRequest) =>
     teachingLoad.deleteTeachingLoad(params).then(() => {}));
 }

@@ -9,10 +9,16 @@ import type {
 import { useQuery    } from "./useQuery";
 import { useMutation } from "./useMutation";
 
-export function useStudents(params: ListStudentsRequest) {
+export function useStudents(
+  params: ListStudentsRequest,
+  options: { skip?: boolean } = {},
+) {
   return useQuery(
     () => students.listStudents(params),
-    { deps: [params.classId, params.limit, params.offset] },
+    {
+      skip: options.skip ?? !params.classId,
+      deps: [params.classId, params.limit, params.offset, options.skip],
+    },
   );
 }
 

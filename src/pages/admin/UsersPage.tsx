@@ -21,7 +21,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 /** Роли, которые можно назначить (без «пустой»). */
-const ASSIGNABLE_ROLES: TRole[] = [Role.Student, Role.Teacher, Role.Admin];
+const ASSIGNABLE_ROLES: TRole[] = [Role.Student, Role.Teacher, Role.Admin, Role.Unauthorized];
 
 const ACCEPTED_HEADERS =
   "Логин / ФИО · Email / Почта · Пароль · Класс / Группа · Роль";
@@ -31,7 +31,7 @@ const ACCEPTED_HEADERS =
  * ────────────────────────────────────────────────────────────────────────*/
 
 function generatePassword(len = 10): string {
-  const alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const alphabet = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789;:.|-/";
   const buf = new Uint32Array(len);
   crypto.getRandomValues(buf);
   let out = "";
@@ -736,7 +736,6 @@ function ManageTab() {
               {roleLabel(r)}
             </option>
           ))}
-          <option value={Role.Unauthorized}>Без роли</option>
         </select>
         <span className="usp__muted usp__count">
           {loading ? "Загрузка…" : `Найдено: ${filtered.length} из ${total}`}

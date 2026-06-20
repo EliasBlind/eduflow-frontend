@@ -1,4 +1,4 @@
-import { createBrowserRouter, RouterProvider, Navigate, Outlet } from "react-router-dom";
+import { createBrowserRouter, RouterProvider, Navigate, Outlet, useParams } from "react-router-dom";
 import { useAuthStore } from "@/storage/auth.store";
 
 // ── Страницы ──────────────────────────────────────────────────
@@ -14,7 +14,7 @@ import TeachingLoadPage  from "@/pages/admin/TeachingLoadPage";
 import ClassesPage       from "@/pages/admin/ClassesPage";
 import SubjectsPage      from "@/pages/admin/SubjectsPage";
 import StatusCodesPage   from "@/pages/admin/StatusCodesPage";
- import UsersPage        from "@/pages/admin/UsersPage";
+import UsersPage         from "@/pages/admin/UsersPage";
 
 import NotFoundPage      from "@/pages/NotFoundPage";
 import { Role } from "@/domain/person";
@@ -44,30 +44,66 @@ function AuthGuard() {
 
 /**
  * Перенаправляет уже авторизованных со страниц auth обратно в приложение.
- * Во время pending тоже ждём — чтобы гость не успел увидеть форму логина
- * за миг до того, как рефреш поднимет сессию.
  */
 function GuestGuard() {
   const status = useAuthStore((s) => s.status);
 
   if (status === AuthStatus.Pending) return <AuthPending />;
-  if (status === AuthStatus.Authenticated) return <Navigate to="/dashboard" replace />; // ← было Unauthenticated
+  if (status === AuthStatus.Authenticated) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }
 
 /**
  * Пускает администраторов и учителей. Остальных — на /dashboard.
- * Роль проверяем только когда сессия уже подтверждена — иначе во время
- * pending role ещё Unauthorized, и мы бы зря редиректнули.
  */
 function TeacherGuard() {
   const status = useAuthStore((s) => s.status);
   const role   = useAuthStore((s) => s.role);
+  console.log("[TeacherGuard] role=%o status=%o (teacher? %o admin? %o)",
+    role, status, role === Role.Teacher, role === Role.Admin);
 
   if (status === AuthStatus.Pending) return <AuthPending />;
+  if (status === AuthStatus.Authenticated && role === Role.Unauthorized) {
+    return <AuthPending />; // роль ещё не подтянулась
+  }
+  if (status === AuthStatus.Unauthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
   return role === Role.Teacher || role === Role.Admin
     ? <Outlet />
     : <Navigate to="/dashboard" replace />;
+}
+
+/**
+ * Доступ к профилю студента /students/:studentId.
+ * Учитель и админ — на любого студента; ученик — только на свой профиль.
+ *
+ * ВАЖНО: гард читает useParams(), поэтому должен рендериться ВНУТРИ ветки
+ * с параметром :studentId — иначе studentId будет undefined.
+ */
+function StudentAccessGuard() {
+  const status = useAuthStore((s) => s.status);
+  const role   = useAuthStore((s) => s.role);
+  const myId   = useAuthStore((s) => s.id);
+  const { studentId } = useParams<{ studentId: string }>();
+  console.log("[StudentAccessGuard] role=%o status=%o studentId=%o myId=%o",
+    role, status, studentId, myId);
+
+  if (status === AuthStatus.Pending) return <AuthPending />;
+  if (status === AuthStatus.Authenticated && role === Role.Unauthorized) {
+    return <AuthPending />; // роль ещё не подтянулась
+  }
+  if (status === AuthStatus.Unauthenticated) {
+    return <Navigate to="/auth/login" replace />;
+  }
+
+  // учитель и админ — на любого студента
+  if (role === Role.Teacher || role === Role.Admin) return <Outlet />;
+
+  // ученик — только на свою страницу
+  if (role === Role.Student && studentId === myId) return <Outlet />;
+
+  return <Navigate to="/dashboard" replace />;
 }
 
 /**
@@ -78,6 +114,9 @@ function AdminGuard() {
   const role   = useAuthStore((s) => s.role);
 
   if (status === AuthStatus.Pending) return <AuthPending />;
+  if (status === AuthStatus.Authenticated && role === Role.Unauthorized) {
+    return <AuthPending />;
+  }
   return role === Role.Admin
     ? <Outlet />
     : <Navigate to="/dashboard" replace />;
@@ -92,7 +131,7 @@ const router = createBrowserRouter([
     children: [
       { path: "/auth/login",        element: <LoginPage       /> },
       { path: "/auth/register",     element: <RegisterPage    /> },
-      { path: "/auth/verify_email", element: <VerifyEmailPage /> },
+      { path: "/auth/verify", element: <VerifyEmailPage /> },
     ],
   },
 
@@ -102,11 +141,19 @@ const router = createBrowserRouter([
       { path: "/", element: <Navigate to="/dashboard" replace /> },
       { path: "/dashboard", element: <DashboardPage /> },
 
+      // Журнал класса — только учитель/админ
       {
         element: <TeacherGuard />,
         children: [
-          { path: "/classes/:classId/journal", element: <ClassJournalPage /> },
-          { path: "/students/:studentId",      element: <StudentPage      /> },
+          { path: "/classes/journal", element: <ClassJournalPage /> },
+        ],
+      },
+
+      // Профиль студента — учитель/админ на любого, ученик на свой
+      {
+        element: <StudentAccessGuard />,
+        children: [
+          { path: "/students/:studentId", element: <StudentPage /> },
         ],
       },
 
@@ -117,7 +164,7 @@ const router = createBrowserRouter([
           { path: "/admin/classes",       element: <ClassesPage      /> },
           { path: "/admin/subjects",      element: <SubjectsPage     /> },
           { path: "/admin/status-codes",  element: <StatusCodesPage  /> },
-          { path: "/admin/users", element: <UsersPage /> },
+          { path: "/admin/users",         element: <UsersPage        /> },
         ],
       },
     ],
@@ -130,4 +177,3 @@ const router = createBrowserRouter([
 export function AppRouter() {
   return <RouterProvider router={router} />;
 }
-

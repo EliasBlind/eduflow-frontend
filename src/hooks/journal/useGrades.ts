@@ -8,10 +8,19 @@ import type {
 import { useQuery    } from "./useQuery";
 import { useMutation } from "./useMutation";
 
-export function useGrades(params: ListGradesRequest) {
+export function useGrades(
+  params: ListGradesRequest,
+  options: { skip?: boolean } = {},
+) {
   return useQuery(
     () => grades.listGrades(params),
-    { deps: [params.studentId, params.classId, params.subjectId, params.start, params.end] },
+    {
+      skip: options.skip ?? false,
+      deps: [
+        params.studentId, params.classId, params.subjectId,
+        params.start, params.end, options.skip,
+      ],
+    },
   );
 }
 
