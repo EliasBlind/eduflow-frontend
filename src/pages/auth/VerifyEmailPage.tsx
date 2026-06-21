@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useVerifyEmail } from "@/hooks/auth/useVerifyEmail";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { styles } from "./VerifyEmailPage.styles";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -10,6 +12,7 @@ interface LocationState {
 }
 
 export default function VerifyEmailPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated } = useAuth();
@@ -31,14 +34,14 @@ export default function VerifyEmailPage() {
   }, [isAuthenticated, navigate]);
 
   const validate = (): string | null => {
-    if (!email.trim()) return "Введите email";
-    if (!EMAIL_REGEX.test(email.trim())) return "Некорректный формат email";
-    if (!code.trim()) return "Введите код подтверждения";
-    if (code.trim().length < 4) return "Код слишком короткий";
+    if (!email.trim()) return t("auth.errEmailRequired");
+    if (!EMAIL_REGEX.test(email.trim())) return t("auth.errEmailInvalid");
+    if (!code.trim()) return t("auth.errCodeRequired");
+    if (code.trim().length < 4) return t("auth.errCodeShort");
     return null;
   };
 
-  const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>	) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
@@ -61,17 +64,17 @@ export default function VerifyEmailPage() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Подтверждение email</h1>
+        <h1 style={styles.title}>{t("auth.verifyTitle")}</h1>
 
         <p style={styles.subtitle}>
           {initialEmail
-            ? `Мы отправили код на ${initialEmail}. Введите его ниже.`
-            : "Введите ваш email и код подтверждения, отправленный на почту."}
+            ? t("auth.verifySubtitleSent", { email: initialEmail })
+            : t("auth.verifySubtitleManual")}
         </p>
 
         <form onSubmit={handleSubmit} noValidate>
           <div style={styles.field}>
-            <label htmlFor="email" style={styles.label}>Email</label>
+            <label htmlFor="email" style={styles.label}>{t("auth.email")}</label>
             <input
               id="email"
               type="email"
@@ -88,7 +91,7 @@ export default function VerifyEmailPage() {
           </div>
 
           <div style={styles.field}>
-            <label htmlFor="code" style={styles.label}>Код подтверждения</label>
+            <label htmlFor="code" style={styles.label}>{t("auth.code")}</label>
             <input
               id="code"
               type="text"
@@ -112,94 +115,16 @@ export default function VerifyEmailPage() {
             disabled={loading}
             style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
           >
-            {loading ? "Проверка..." : "Подтвердить"}
+            {loading ? t("auth.verifying") : t("auth.verifyButton")}
           </button>
         </form>
 
         <p style={styles.footer}>
           <Link to="/auth/login" style={styles.link}>
-            Вернуться ко входу
+            {t("auth.backToLogin")}
           </Link>
         </p>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f5f5f7",
-    padding: 16,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 380,
-    background: "#fff",
-    padding: 32,
-    borderRadius: 8,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  title: {
-    margin: "0 0 8px",
-    fontSize: 24,
-    fontWeight: 600,
-    textAlign: "center",
-  },
-  subtitle: {
-    margin: "0 0 24px",
-    fontSize: 13,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 1.5,
-  },
-  field: { marginBottom: 16 },
-  label: {
-    display: "block",
-    marginBottom: 6,
-    fontSize: 14,
-    color: "#333",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 14,
-    border: "1px solid #d0d0d5",
-    borderRadius: 6,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  inputReadonly: { background: "#f5f5f7", color: "#666" },
-  button: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    fontWeight: 500,
-    color: "#fff",
-    background: "#2563eb",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    marginTop: 8,
-  },
-  buttonDisabled: { background: "#93b4f0", cursor: "not-allowed" },
-  error: {
-    padding: "8px 12px",
-    marginBottom: 12,
-    background: "#fee",
-    color: "#b00020",
-    border: "1px solid #fbb",
-    borderRadius: 6,
-    fontSize: 13,
-  },
-  footer: {
-    marginTop: 20,
-    fontSize: 14,
-    textAlign: "center",
-    color: "#555",
-  },
-  link: { color: "#2563eb", textDecoration: "none" },
-};

@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "erasableSyntaxOnly": false,
+    "verbatimModuleSyntax": true,
     "types": ["node"],
     "paths": {
       "@/*": ["./src/*"]

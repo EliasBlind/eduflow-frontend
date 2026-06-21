@@ -1,6 +1,39 @@
-import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState, type ReactNode } from "react";
 import { styles } from "./_shared.styles";
+
+// ── Адаптив: определяем «мобильный» брейкпоинт ────────────────
+
+const MOBILE_QUERY = "(max-width: 640px)";
+
+/** true, когда ширина вьюпорта ≤ 640px. Реагирует на ресайз/поворот. */
+export function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia(MOBILE_QUERY).matches
+      : false,
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    setIsMobile(mq.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return isMobile;
+}
+
+/** Контейнер страницы с адаптивными отступами. */
+export function PageWrapper({ children }: { children: ReactNode }) {
+  const isMobile = useIsMobile();
+  return (
+    <div style={isMobile ? { ...styles.wrapper, ...styles.wrapperMobile } : styles.wrapper}>
+      {children}
+    </div>
+  );
+}
 
 // ── Shared layout components ──────────────────────────────────
 
@@ -12,13 +45,17 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, createLabel, onCreate, createDisabled }: PageHeaderProps) {
+  const isMobile = useIsMobile();
   return (
-    <header style={styles.pageHeader}>
+    <header style={isMobile ? { ...styles.pageHeader, ...styles.pageHeaderMobile } : styles.pageHeader}>
       <div>
-        <Link to="/dashboard" style={styles.back}>← Назад</Link>
         <h1 style={styles.pageTitle}>{title}</h1>
       </div>
-      <button onClick={onCreate} disabled={createDisabled} style={styles.btnPrimary}>
+      <button
+        onClick={onCreate}
+        disabled={createDisabled}
+        style={isMobile ? { ...styles.btnPrimary, width: "100%" } : styles.btnPrimary}
+      >
         {createLabel}
       </button>
     </header>

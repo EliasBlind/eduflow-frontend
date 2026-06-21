@@ -1,7 +1,20 @@
 import { useState, useEffect, useCallback, memo } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { Trans, useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { useLogout } from "@/hooks/auth/useLogout";
+import { styles } from "./DashboardPage.styles";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import { ThemeToggle } from "@/theme";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
+import {
+  FaUsers,
+  FaChalkboardTeacher,
+  FaSchool,
+  FaBookOpen,
+  FaTag,
+  FaBars,
+} from "react-icons/fa";
 
 // -----------------------------------------------------------------------------
 // Constants
@@ -10,6 +23,8 @@ const SIDEBAR_WIDTH = 240;
 const COLLAPSED_WIDTH = 64;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
+// Ширина выезжающей панели (drawer) на мобильных.
+const MOBILE_DRAWER_WIDTH = "min(82vw, 280px)";
 
 // -----------------------------------------------------------------------------
 // Custom hook: управление ресайзом боковой панели
@@ -60,16 +75,18 @@ const useSidebarResize = (initialWidth: number) => {
 interface NavItemProps {
   to: string;
   label: string;
-  icon: string;
+  icon: React.ReactNode; // теперь это React-узел (компонент иконки)
   open: boolean;
   active: boolean;
+  onClick?: () => void;
 }
 
-const NavItem = memo(({ to, label, icon, open, active }: NavItemProps) => {
+const NavItem = memo(({ to, label, icon, open, active, onClick }: NavItemProps) => {
   return (
     <Link
       to={to}
       title={label}
+      onClick={onClick}
       style={{
         ...styles.navItem,
         ...(active ? styles.navItemActive : {}),
@@ -92,9 +109,62 @@ const Welcome = ({ title, hint }: { title: string; hint: string }) => (
 );
 
 // -----------------------------------------------------------------------------
-// Основной компонент
+// Контент правой части для самого маршрута /dashboard (index-маршрут).
+// Раньше этот блок был прямо внутри <main>. Теперь он вынесен в отдельный
+// компонент, который рендерится в <Outlet />, когда никакая вложенная
+// страница не выбрана.
+// -----------------------------------------------------------------------------
+export function DashboardHome() {
+  const { t } = useTranslation();
+  const { user, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
+
+  return (
+    <>
+      {isAdmin && (
+        <Welcome
+          title={t("dashboard.adminTitle")}
+          hint={t("dashboard.adminHint")}
+        />
+      )}
+      {isTeacher && (
+        <section>
+          <h2 style={styles.sectionTitle}>{t("dashboard.journalsTitle")}</h2>
+          <p style={styles.muted}>
+            <Trans
+              i18nKey="dashboard.teacherHint"
+              components={{
+                classLink: <Link to="/admin/classes" style={styles.link} />,
+                code: <code />,
+              }}
+            />
+          </p>
+        </section>
+      )}
+      {isStudent && (
+        <section>
+          <h2 style={styles.sectionTitle}>{t("dashboard.myPerformance")}</h2>
+          {user?.id ? (
+            <Link to={`/students/${user.id}`} style={styles.primaryLink}>
+              {t("dashboard.openMyProfile")}
+            </Link>
+          ) : (
+            <p style={styles.muted}>{t("dashboard.profileNotFound")}</p>
+          )}
+        </section>
+      )}
+      {isUnauthorized && (
+        <p style={styles.muted}>{t("dashboard.roleUndefinedAdmin")}</p>
+      )}
+    </>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Основной компонент — теперь это LAYOUT.
+// Боковая панель остаётся на месте, а страницы рендерятся в <Outlet />.
 // -----------------------------------------------------------------------------
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const { user, role, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
   const { logout } = useLogout();
   const { pathname } = useLocation();
@@ -116,16 +186,41 @@ export default function DashboardPage() {
   const { width, isResizing, startResize, resetWidth } =
     useSidebarResize(SIDEBAR_WIDTH);
 
-  // Генерация пунктов меню – вычисляется каждый рендер (недорого)
+  // На мобильных боковая панель превращается в выезжающий drawer.
+  const isMobile = useIsMobile();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
+
+  // На мобильных drawer всегда показывает подписи (как в развёрнутом виде).
+  const expanded = isMobile ? true : open;
+
+  // Закрываем мобильное меню при переходе на другой маршрут.
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
+  // Пока drawer открыт — блокируем прокрутку фона.
+  useEffect(() => {
+    if (!isMobile || !mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isMobile, mobileNavOpen]);
+
+  // Генерация пунктов меню – вычисляется каждый рендер (недорого).
+  // Подписи берём из тех же ключей, что и заголовки соответствующих страниц.
+  // Теперь используем React-иконки вместо эмодзи.
   const navItems: Omit<NavItemProps, "open" | "active">[] = [];
 
   if (isAdmin) {
     navItems.push(
-      { to: "/admin/users", label: "Пользователи", icon: "👥" },
-      { to: "/admin/teaching-load", label: "Учебная нагрузка", icon: "📚" },
-      { to: "/admin/classes", label: "Классы", icon: "🏫" },
-      { to: "/admin/subjects", label: "Предметы", icon: "📖" },
-      { to: "/admin/status-codes", label: "Статус-коды", icon: "🔖" },
+      { to: "/admin/users", label: t("users.title"), icon: <FaUsers size={20} aria-hidden="true" /> },
+      { to: "/admin/teaching-load", label: t("teachingLoad.title"), icon: <FaChalkboardTeacher size={20} aria-hidden="true" /> },
+      { to: "/admin/classes", label: t("classes.title"), icon: <FaSchool size={20} aria-hidden="true" /> },
+      { to: "/admin/subjects", label: t("subjects.title"), icon: <FaBookOpen size={20} aria-hidden="true" /> },
+      { to: "/admin/status-codes", label: t("statusCodes.title"), icon: <FaTag size={20} aria-hidden="true" /> },
     );
   }
 
@@ -136,26 +231,68 @@ export default function DashboardPage() {
   const currentWidth = open ? width : COLLAPSED_WIDTH;
 
   return (
-    <div style={styles.wrapper}>
-      {/* Боковая панель */}
+    <div style={isMobile ? { ...styles.wrapper, ...styles.wrapperMobile } : styles.wrapper}>
+      {/* Верхняя панель с бургером — только на мобильных */}
+      {isMobile && (
+        <header style={styles.topbar}>
+          <button
+            onClick={() => setMobileNavOpen(true)}
+            style={styles.hamburger}
+            aria-label={t("dashboard.expand")}
+            aria-expanded={mobileNavOpen}
+          >
+            <FaBars size={18} aria-hidden="true" />
+          </button>
+          <span style={styles.brand}>EduFlow</span>
+        </header>
+      )}
+
+      {/* Затемнение под выехавшим drawer */}
+      {isMobile && mobileNavOpen && (
+        <div style={styles.backdrop} onClick={closeMobileNav} aria-hidden="true" />
+      )}
+
+      {/* Боковая панель (на мобильных — выезжающий drawer) */}
       <aside
-        style={{
-          ...styles.sidebar,
-          width: currentWidth,
-          transition: isResizing ? "none" : "width 0.2s ease",
-        }}
-        aria-label="Боковая навигация"
+        style={
+          isMobile
+            ? {
+                ...styles.sidebar,
+                ...styles.sidebarMobile,
+                width: MOBILE_DRAWER_WIDTH,
+                transform: mobileNavOpen ? "translateX(0)" : "translateX(-100%)",
+              }
+            : {
+                ...styles.sidebar,
+                width: currentWidth,
+                transition: isResizing ? "none" : "width 0.2s ease",
+              }
+        }
+        aria-label={t("dashboard.sidebarAria")}
+        aria-hidden={isMobile && !mobileNavOpen}
       >
         {/* Шапка панели */}
         <div style={styles.sidebarHeader}>
-          {open && <span style={styles.brand}>EduFlow</span>}
+          {expanded && <span style={styles.brand}>EduFlow</span>}
           <button
-            onClick={toggleSidebar}
+            onClick={isMobile ? closeMobileNav : toggleSidebar}
             style={styles.toggleBtn}
-            aria-label={open ? "Свернуть панель" : "Развернуть панель"}
-            title={open ? "Свернуть панель" : "Развернуть панель"}
+            aria-label={
+              isMobile
+                ? t("common.close")
+                : open
+                  ? t("dashboard.collapse")
+                  : t("dashboard.expand")
+            }
+            title={
+              isMobile
+                ? t("common.close")
+                : open
+                  ? t("dashboard.collapse")
+                  : t("dashboard.expand")
+            }
           >
-            {open ? "«" : "»"}
+            {isMobile ? "✕" : open ? "«" : "»"}
           </button>
         </div>
 
@@ -165,254 +302,71 @@ export default function DashboardPage() {
             <NavItem
               key={item.to}
               {...item}
-              open={open}
+              open={expanded}
               active={pathname.startsWith(item.to)}
+              onClick={isMobile ? closeMobileNav : undefined}
             />
           ))}
-          {isUnauthorized && open && (
-            <p style={styles.muted}>Роль не определена.</p>
+          {isUnauthorized && expanded && (
+            <p style={styles.muted}>{t("dashboard.roleUndefined")}</p>
           )}
         </nav>
 
         {/* Нижняя часть панели: пользователь и выход */}
         <div style={styles.sidebarFooter}>
-          {open && (
+          {expanded && (
             <div style={styles.userBox}>
               <span style={styles.userName}>
-                Пользователь: {user?.login ?? "—"}
+                {t("dashboard.user", { login: user?.login ?? "—" })}
               </span>
               <span style={styles.role}>{role ?? "—"}</span>
             </div>
           )}
+
+          {/* Переключатель языка (с флагами стран) */}
+          <LanguageSwitcher
+            compact={!expanded}
+            style={!expanded ? { width: "100%" } : undefined}
+          />
+
+          <ThemeToggle
+            compact={!expanded}
+            style={!expanded ? { width: "100%" } : undefined}
+          />
+
           <button
             onClick={logout}
             style={{
               ...styles.logoutBtn,
-              justifyContent: open ? "flex-start" : "center",
+              justifyContent: expanded ? "flex-start" : "center",
             }}
-            title="Выйти"
+            title={t("common.logout")}
           >
             <span>⏏</span>
-            {open && <span>Выйти</span>}
+            {expanded && <span>{t("common.logout")}</span>}
           </button>
         </div>
 
-        {/* Ресайзер (разделитель) */}
-        {open && (
+        {/* Ресайзер (разделитель) — только на десктопе */}
+        {!isMobile && open && (
           <div
             onMouseDown={startResize}
             onDoubleClick={resetWidth}
             style={{
               ...styles.resizer,
-              background: isResizing ? "#2563eb" : "transparent",
+              background: isResizing ? "var(--accent)" : "transparent",
             }}
-            title="Потяните, чтобы изменить ширину (двойной клик — сброс)"
+            title={t("dashboard.resizerTitle")}
             role="separator"
             aria-orientation="vertical"
           />
         )}
       </aside>
 
-      {/* Основной контент */}
-      <main style={styles.main}>
-        {isAdmin && (
-          <Welcome title="Администрирование" hint="Выберите раздел в боковой панели." />
-        )}
-        {isTeacher && (
-          <section>
-            <h2 style={styles.sectionTitle}>Журналы</h2>
-            <p style={styles.muted}>
-              Выберите класс на странице{" "}
-              <Link to="/admin/classes" style={styles.link}>
-                списка классов
-              </Link>{" "}
-              или перейдите по ссылке вида <code>/classes/:classId/journal</code>.
-            </p>
-          </section>
-        )}
-        {isStudent && (
-          <section>
-            <h2 style={styles.sectionTitle}>Моя успеваемость</h2>
-            {user?.id ? (
-              <Link to={`/students/${user.id}`} style={styles.primaryLink}>
-                Открыть мой профиль →
-              </Link>
-            ) : (
-              <p style={styles.muted}>Не удалось определить ваш профиль.</p>
-            )}
-          </section>
-        )}
-        {isUnauthorized && (
-          <p style={styles.muted}>
-            Роль не определена. Обратитесь к администратору.
-          </p>
-        )}
+      {/* Основной контент — сюда подставляются вложенные страницы */}
+      <main style={isMobile ? { ...styles.main, ...styles.mainMobile } : styles.main}>
+        <Outlet />
       </main>
     </div>
   );
 }
-
-// -----------------------------------------------------------------------------
-// Стили
-// -----------------------------------------------------------------------------
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    display: "flex",
-    minHeight: "100vh",
-    background: "#f5f5f7",
-  },
-
-  sidebar: {
-    display: "flex",
-    flexDirection: "column",
-    background: "#fff",
-    borderRight: "1px solid #e5e5ea",
-    overflow: "hidden",
-    flexShrink: 0,
-    position: "sticky",
-    top: 0,
-    height: "100vh",
-  },
-  sidebarHeader: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px 12px",
-    borderBottom: "1px solid #e5e5ea",
-    minHeight: 56,
-    boxSizing: "border-box",
-  },
-  brand: {
-    fontSize: 20,
-    fontWeight: 600,
-    whiteSpace: "nowrap",
-  },
-  toggleBtn: {
-    width: 32,
-    height: 32,
-    flexShrink: 0,
-    background: "#f5f5f7",
-    border: "1px solid #e5e5ea",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontSize: 16,
-    lineHeight: 1,
-    color: "#444",
-  },
-  nav: {
-    flex: 1,
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    padding: 8,
-    overflowY: "auto",
-  },
-  navItem: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "10px 12px",
-    borderRadius: 8,
-    textDecoration: "none",
-    color: "#1a1a1a",
-    fontSize: 14,
-    whiteSpace: "nowrap",
-  },
-  navItemActive: {
-    background: "#eef2ff",
-    color: "#3730a3",
-    fontWeight: 600,
-  },
-  navIcon: {
-    fontSize: 18,
-    width: 20,
-    textAlign: "center",
-    flexShrink: 0,
-  },
-  navLabel: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  },
-
-  resizer: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    width: 6,
-    height: "100%",
-    cursor: "col-resize",
-    transition: "background 0.15s ease",
-    zIndex: 10,
-  },
-
-  sidebarFooter: {
-    borderTop: "1px solid #e5e5ea",
-    padding: 8,
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  },
-  userBox: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    padding: "4px 8px",
-  },
-  userName: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: "#1a1a1a",
-  },
-  role: {
-    display: "inline-block",
-    alignSelf: "flex-start",
-    padding: "1px 8px",
-    background: "#eef2ff",
-    color: "#3730a3",
-    borderRadius: 4,
-    fontSize: 12,
-    fontWeight: 500,
-  },
-  logoutBtn: {
-    display: "flex",
-    alignItems: "center",
-    gap: 12,
-    padding: "10px 12px",
-    background: "#fff",
-    color: "#b00020",
-    border: "1px solid #fbb",
-    borderRadius: 8,
-    cursor: "pointer",
-    fontSize: 14,
-    whiteSpace: "nowrap",
-  },
-
-  main: {
-    flex: 1,
-    padding: 32,
-    maxWidth: 1200,
-  },
-  sectionTitle: {
-    margin: "0 0 16px",
-    fontSize: 18,
-    fontWeight: 600,
-  },
-  muted: {
-    color: "#666",
-    fontSize: 14,
-  },
-  link: {
-    color: "#2563eb",
-    textDecoration: "none",
-  },
-  primaryLink: {
-    display: "inline-block",
-    padding: "10px 16px",
-    background: "#2563eb",
-    color: "#fff",
-    borderRadius: 6,
-    textDecoration: "none",
-    fontSize: 14,
-    fontWeight: 500,
-  },
-};

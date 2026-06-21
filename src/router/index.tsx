@@ -1,25 +1,30 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, useParams } from "react-router-dom";
 import { useAuthStore } from "@/storage/auth.store";
 
-// ── Страницы ──────────────────────────────────────────────────
-import LoginPage         from "@/pages/auth/LoginPage";
-import RegisterPage      from "@/pages/auth/RegisterPage";
-import VerifyEmailPage   from "@/pages/auth/VerifyEmailPage";
+// ── Страницы (ленивая загрузка) ───────────────────────────────
+const LoginPage        = lazy(() => import("@/pages/auth/LoginPage"));
+const RegisterPage     = lazy(() => import("@/pages/auth/RegisterPage"));
+const VerifyEmailPage  = lazy(() => import("@/pages/auth/VerifyEmailPage"));
 
-import DashboardPage     from "@/pages/journal/DashboardPage";
-import ClassJournalPage  from "@/pages/journal/ClassJournalPage";
-import StudentPage       from "@/pages/journal/StudentPage";
+// DashboardPage — LAYOUT (default), DashboardHome — named-экспорт того же файла.
+const DashboardPage    = lazy(() => import("@/pages/journal/DashboardPage"));
+const DashboardHome    = lazy(() =>
+  import("@/pages/journal/DashboardPage").then((m) => ({ default: m.DashboardHome }))
+);
+const ClassJournalPage = lazy(() => import("@/pages/journal/ClassJournalPage"));
+const StudentPage      = lazy(() => import("@/pages/journal/StudentPage"));
 
-import TeachingLoadPage  from "@/pages/admin/TeachingLoadPage";
-import ClassesPage       from "@/pages/admin/ClassesPage";
-import SubjectsPage      from "@/pages/admin/SubjectsPage";
-import StatusCodesPage   from "@/pages/admin/StatusCodesPage";
-import UsersPage         from "@/pages/admin/UsersPage";
+const TeachingLoadPage = lazy(() => import("@/pages/admin/TeachingLoadPage"));
+const ClassesPage      = lazy(() => import("@/pages/admin/ClassesPage"));
+const SubjectsPage     = lazy(() => import("@/pages/admin/SubjectsPage"));
+const StatusCodesPage  = lazy(() => import("@/pages/admin/StatusCodesPage"));
+const UsersPage        = lazy(() => import("@/pages/admin/UsersPage"));
 
-import NotFoundPage      from "@/pages/NotFoundPage";
+const NotFoundPage     = lazy(() => import("@/pages/NotFoundPage"));
+
 import { Role } from "@/domain/person";
-import { AuthStatus } from '@/domain/authStatus';
-
+import { AuthStatus } from "@/domain/authStatus";
 
 // ── Заглушка лоадера — замени на свой ─────────────────────────
 function AuthPending() {
@@ -124,13 +129,12 @@ function AdminGuard() {
 
 
 // ── Router ────────────────────────────────────────────────────
-
 const router = createBrowserRouter([
   {
     element: <GuestGuard />,
     children: [
-      { path: "/auth/login",        element: <LoginPage       /> },
-      { path: "/auth/register",     element: <RegisterPage    /> },
+      { path: "/auth/login", element: <LoginPage /> },
+      { path: "/auth/register", element: <RegisterPage /> },
       { path: "/auth/verify", element: <VerifyEmailPage /> },
     ],
   },
@@ -139,32 +143,39 @@ const router = createBrowserRouter([
     element: <AuthGuard />,
     children: [
       { path: "/", element: <Navigate to="/dashboard" replace /> },
-      { path: "/dashboard", element: <DashboardPage /> },
 
-      // Журнал класса — только учитель/админ
+      // ── LAYOUT с боковой панелью ──────────────────────────────
+      {
+        element: <DashboardPage />,
+        children: [
+          { path: "/dashboard", element: <DashboardHome /> },
+          // Админские разделы (требуют панель)
+          {
+            element: <AdminGuard />,
+            children: [
+              { path: "/admin/teaching-load", element: <TeachingLoadPage /> },
+              { path: "/admin/classes", element: <ClassesPage /> },
+              { path: "/admin/subjects", element: <SubjectsPage /> },
+              { path: "/admin/status-codes", element: <StatusCodesPage /> },
+              { path: "/admin/users", element: <UsersPage /> },
+            ],
+          },
+        ],
+      },
+
+      // ── Маршруты БЕЗ боковой панели ──────────────────────────────
+      // Журнал класса – только учитель/админ
       {
         element: <TeacherGuard />,
         children: [
           { path: "/classes/journal", element: <ClassJournalPage /> },
         ],
       },
-
-      // Профиль студента — учитель/админ на любого, ученик на свой
+      // Профиль студента – учитель/админ на любого, ученик на свой
       {
         element: <StudentAccessGuard />,
         children: [
           { path: "/students/:studentId", element: <StudentPage /> },
-        ],
-      },
-
-      {
-        element: <AdminGuard />,
-        children: [
-          { path: "/admin/teaching-load", element: <TeachingLoadPage /> },
-          { path: "/admin/classes",       element: <ClassesPage      /> },
-          { path: "/admin/subjects",      element: <SubjectsPage     /> },
-          { path: "/admin/status-codes",  element: <StatusCodesPage  /> },
-          { path: "/admin/users",         element: <UsersPage        /> },
         ],
       },
     ],
@@ -173,7 +184,10 @@ const router = createBrowserRouter([
   { path: "*", element: <NotFoundPage /> },
 ]);
 
-
 export function AppRouter() {
-  return <RouterProvider router={router} />;
+  return (
+    <Suspense fallback={<AuthPending />}>
+      <RouterProvider router={router} />
+    </Suspense>
+  );
 }

@@ -1,13 +1,13 @@
 import { renderHook, act } from "@testing-library/react";
 import { useMutation } from "@/hooks/journal/useMutation";
-import { describe, it, vi, expect, beforeEach } from "vitest";
+import { describe, it, vi, expect } from "vitest";
 
 describe("useMutation", () => {
   it("успешный вызов возвращает данные", async () => {
     const fn = vi.fn().mockResolvedValue({ id: "1" });
     const { result } = renderHook(() => useMutation(fn));
 
-    let data: any;
+    let data;
     await act(async () => {
       data = await result.current.mutate({ name: "test" });
     });
@@ -29,7 +29,7 @@ describe("useMutation", () => {
   });
 
   it("loading = true во время запроса", async () => {
-    let resolve!: (v: any) => void;
+    let resolve!: (v: unknown) => void;
     const fn = vi.fn().mockReturnValue(new Promise((r) => { resolve = r; }));
     const { result } = renderHook(() => useMutation(fn));
 

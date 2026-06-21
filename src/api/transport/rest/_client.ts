@@ -1,8 +1,10 @@
 import { useAuthStore } from "@/storage/auth.store";
+import i18n from "@/i18n"; // импортируем i18n инстанс
 
 /**
  * Базовый REST-клиент.
- * Автоматически подставляет Bearer-токен из localStorage
+ * Автоматически подставляет Bearer-токен из localStorage,
+ * заголовок Accept-Language с текущим языком интерфейса
  * и выбрасывает RestError при не-2xx ответе.
  */
 
@@ -39,8 +41,13 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 function getHeaders(path: string, extra?: Record<string, string>): Record<string, string> {
   const token = isNoAuthPath(path) ? undefined : useAuthStore.getState().accessToken;
+
+  // Текущий язык интерфейса
+  const lang = i18n.language || i18n.resolvedLanguage || "en";
+
   return {
     "Content-Type": "application/json",
+    "Accept-Language": lang,
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
   };

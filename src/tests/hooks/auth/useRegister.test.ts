@@ -2,6 +2,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useRegister } from "@/hooks/auth/useRegister";
 import { auth } from "@/api/client";
 import { describe, it, vi, expect, beforeEach } from "vitest";
+import type { RegisterResponse } from '@/api/gen/sso/sso';
 
 vi.mock("@/api/client", () => ({
   auth: { register: vi.fn() },
@@ -13,7 +14,7 @@ beforeEach(() => { vi.clearAllMocks(); });
 
 describe("useRegister", () => {
   it("успешная регистрация — нет ошибок", async () => {
-    mockRegister.mockResolvedValue(undefined);
+    mockRegister.mockResolvedValue({} as RegisterResponse);
 
     const { result } = renderHook(() => useRegister());
 

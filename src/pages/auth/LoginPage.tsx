@@ -1,16 +1,19 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 // Импортируем иконки
 import { Eye, EyeOff } from "lucide-react";
 
 import { useLogin } from "@/hooks/auth/useLogin";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { styles } from "./LoginPage.styles";
 
 interface LocationState {
   from?: { pathname: string };
 }
 
 export default function LoginPage() {
+  const { t } = useTranslation();
   const [showPassword, setShowPassword] = useState(false);
 
   const navigate = useNavigate();
@@ -31,10 +34,10 @@ export default function LoginPage() {
   }, [isAuthenticated, navigate, location.state]);
 
   const validate = (): string | null => {
-    if (!loginField.trim()) return "Введите логин";
-    if (loginField.trim().length < 3) return "Логин должен быть не менее 3 символов";
-    if (!password) return "Введите пароль";
-    if (password.length < 5) return "Пароль должен быть не менее 5 символов";
+    if (!loginField.trim()) return t("auth.errLoginRequired");
+    if (loginField.trim().length < 3) return t("auth.errLoginMin");
+    if (!password) return t("auth.errPasswordRequired");
+    if (password.length < 5) return t("auth.errPasswordMin5");
     return null;
   };
 
@@ -56,11 +59,11 @@ export default function LoginPage() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Вход</h1>
+        <h1 style={styles.title}>{t("auth.loginTitle")}</h1>
 
         <form onSubmit={handleSubmit} noValidate>
           <div style={styles.field}>
-            <label htmlFor="login" style={styles.label}>Логин</label>
+            <label htmlFor="login" style={styles.label}>{t("auth.login")}</label>
             <input
               id="login"
               type="text"
@@ -73,7 +76,7 @@ export default function LoginPage() {
           </div>
 
           <div style={styles.field}>
-            <label htmlFor="password" style={styles.label}>Пароль</label>
+            <label htmlFor="password" style={styles.label}>{t("auth.password")}</label>
             {/* Обертка для инпута и кнопки */}
             <div style={styles.inputContainer}>
               <input
@@ -90,7 +93,7 @@ export default function LoginPage() {
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={loading}
                 style={styles.eyeButton}
-                aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                aria-label={showPassword ? t("auth.hidePassword") : t("auth.showPassword")}
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -108,116 +111,17 @@ export default function LoginPage() {
             disabled={loading}
             style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
           >
-            {loading ? "Вход..." : "Войти"}
+            {loading ? t("auth.loggingIn") : t("auth.loginButton")}
           </button>
         </form>
 
         <p style={styles.footer}>
-          Нет аккаунта?{" "}
+          {t("auth.noAccount")}{" "}
           <Link to="/auth/register" style={styles.link}>
-            Зарегистрироваться
+            {t("auth.registerLink")}
           </Link>
         </p>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f5f5f7",
-    padding: 16,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 380,
-    background: "#fff",
-    padding: 32,
-    borderRadius: 8,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  title: {
-    margin: "0 0 24px",
-    fontSize: 24,
-    fontWeight: 600,
-    textAlign: "center",
-  },
-  field: { marginBottom: 16 },
-  label: {
-    display: "block",
-    marginBottom: 6,
-    fontSize: 14,
-    color: "#333",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 14,
-    border: "1px solid #d0d0d5",
-    borderRadius: 6,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  // Контейнер для позиционирования кнопки относительно инпута
-  inputContainer: {
-    position: "relative",
-    display: "flex",
-    alignItems: "center",
-  },
-  // Инпут с увеличенным правым отступом, чтобы текст не залезал под иконку
-  inputPassword: {
-    width: "100%",
-    padding: "10px 40px 10px 12px",
-    fontSize: 14,
-    border: "1px solid #d0d0d5",
-    borderRadius: 6,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  // Стили для абсолютного позиционирования кнопки-иконки
-  eyeButton: {
-    position: "absolute",
-    right: 12,
-    background: "none",
-    border: "none",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#6b7280",
-    padding: 0,
-  },
-  button: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    fontWeight: 500,
-    color: "#fff",
-    background: "#2563eb",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    marginTop: 8,
-  },
-  buttonDisabled: { background: "#93b4f0", cursor: "not-allowed" },
-  error: {
-    padding: "8px 12px",
-    marginBottom: 12,
-    background: "#fee",
-    color: "#b00020",
-    border: "1px solid #fbb",
-    borderRadius: 6,
-    fontSize: 13,
-  },
-  footer: {
-    marginTop: 20,
-    fontSize: 14,
-    textAlign: "center",
-    color: "#555",
-  },
-  link: { color: "#2563eb", textDecoration: "none" },
-};

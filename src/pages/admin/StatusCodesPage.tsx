@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useStatusCodes,
   useCreateStatusCode,
@@ -7,6 +8,7 @@ import {
 } from "@/hooks/journal/useStatusCodes";
 import { styles } from "./_shared.styles";
 import {
+  PageWrapper,
   PageHeader,
   Modal,
   ModalActions,
@@ -23,6 +25,7 @@ interface StatusCodeRow {
 }
 
 export default function StatusCodesPage() {
+  const { t } = useTranslation();
   const list = useStatusCodes();
   const createMut = useCreateStatusCode();
   const updateMut = useUpdateStatusCode();
@@ -51,7 +54,7 @@ export default function StatusCodesPage() {
 
   const submit = async () => {
     if (value.trim().length < 1) {
-      setFormError("Введите название");
+      setFormError(t("statusCodes.errName"));
       return;
     }
     try {
@@ -68,7 +71,7 @@ export default function StatusCodesPage() {
   };
 
   const handleDelete = async (c: StatusCodeRow) => {
-    if (!confirm(`Удалить статус-код «${c.fullName}»?`)) return;
+    if (!confirm(t("statusCodes.deleteConfirm", { name: c.fullName }))) return;
     await deleteMut.mutate({ id: c.id });
     list.refetch();
   };
@@ -77,11 +80,11 @@ export default function StatusCodesPage() {
   const mutError   = createMut.error ?? updateMut.error;
 
   return (
-    <div style={styles.wrapper}>
-      <PageHeader title="Статус-коды" onCreate={openCreate} createLabel="Добавить код" />
+    <PageWrapper>
+      <PageHeader title={t("statusCodes.title")} onCreate={openCreate} createLabel={t("statusCodes.create")} />
 
       <p style={styles.helper}>
-        Статус-коды используются в журнале вместо оценок (например, «Н» — отсутствовал, «Б» — болен).
+        {t("statusCodes.helper")}
       </p>
 
       {list.error && <ErrorBox message={list.error} />}
@@ -90,13 +93,13 @@ export default function StatusCodesPage() {
       {list.loading ? (
         <Loading />
       ) : codes.length === 0 ? (
-        <Empty message="Статус-кодов пока нет." />
+        <Empty message={t("statusCodes.empty")} />
       ) : (
         <Table>
           <thead>
             <tr>
-              <th style={styles.th}>Название</th>
-              <th style={{ ...styles.th, ...styles.thActions }}>Действия</th>
+              <th style={styles.th}>{t("common.name")}</th>
+              <th style={{ ...styles.th, ...styles.thActions }}>{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -104,8 +107,8 @@ export default function StatusCodesPage() {
               <tr key={c.id}>
                 <td style={styles.td}>{c.fullName}</td>
                 <td style={{ ...styles.td, ...styles.tdActions }}>
-                  <button onClick={() => openEdit(c)} style={styles.btnSecondary}>Изменить</button>
-                  <button onClick={() => handleDelete(c)} style={styles.btnDanger}>Удалить</button>
+                  <button onClick={() => openEdit(c)} style={styles.btnSecondary}>{t("common.edit")}</button>
+                  <button onClick={() => handleDelete(c)} style={styles.btnDanger}>{t("common.delete")}</button>
                 </td>
               </tr>
             ))}
@@ -115,10 +118,10 @@ export default function StatusCodesPage() {
 
       {modalOpen && (
         <Modal
-          title={editing ? "Изменить статус-код" : "Новый статус-код"}
+          title={editing ? t("statusCodes.modalEdit") : t("statusCodes.modalNew")}
           onClose={() => setModalOpen(false)}
         >
-          <Field label="Название">
+          <Field label={t("common.name")}>
             <input
               value={value}
               onChange={(e) => setValue(e.target.value)}
@@ -131,13 +134,13 @@ export default function StatusCodesPage() {
           {(formError ?? mutError) && <ErrorBox message={formError ?? mutError!} />}
 
           <ModalActions>
-            <button onClick={() => setModalOpen(false)} disabled={mutLoading} style={styles.btnSecondary}>Отмена</button>
+            <button onClick={() => setModalOpen(false)} disabled={mutLoading} style={styles.btnSecondary}>{t("common.cancel")}</button>
             <button onClick={submit} disabled={mutLoading} style={styles.btnPrimary}>
-              {mutLoading ? "Сохранение…" : "Сохранить"}
+              {mutLoading ? t("common.saving") : t("common.save")}
             </button>
           </ModalActions>
         </Modal>
       )}
-    </div>
+    </PageWrapper>
   );
 }

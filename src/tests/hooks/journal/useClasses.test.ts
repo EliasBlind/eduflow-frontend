@@ -52,7 +52,7 @@ describe("useClass", () => {
 
 describe("useDeleteClass", () => {
   it("вызывает deleteClass", async () => {
-    mock.deleteClass.mockResolvedValue(undefined);
+    mock.deleteClass.mockResolvedValue({});
 
     const { result } = renderHook(() => useDeleteClass());
     await act(async () => { await result.current.mutate({ id: "cls-1" }); });

@@ -57,7 +57,7 @@ describe("useCreateStudent", () => {
     mock.createStudent.mockResolvedValue({ id: "new", fullName: "Петя" });
 
     const { result } = renderHook(() => useCreateStudent());
-    let res: any;
+    let res;
     await act(async () => {
       res = await result.current.mutate({ fullName: "Петя" });
     });
@@ -68,7 +68,7 @@ describe("useCreateStudent", () => {
 
 describe("useDeleteStudent", () => {
   it("вызывает deleteStudent и возвращает void", async () => {
-    mock.deleteStudent.mockResolvedValue(undefined);
+    mock.deleteStudent.mockResolvedValue({});
 
     const { result } = renderHook(() => useDeleteStudent());
     await act(async () => {

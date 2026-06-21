@@ -1,30 +1,34 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { FileUploader } from "@/components/ui/LoadFile";
 import { utils, write } from "xlsx";
 import { ExelFile } from "@/utils/exclFile/get-exel";
 import { Person, Role, type TRole } from "@/domain/person";
 import type { User } from "@/api/gen/sso/sso";
 import type { Class } from "@/api/gen/journal/journal";
-import { classes as classesApi } from "@/api/client";
+import { classes as classesApi, students as studentsApi } from "@/api/client";
 import { useImportUsers, useListUsers, useSetRole } from "@/hooks/auth";
-import { useCreateClass, useCreateStudent, useCreateTeacher } from "@/hooks/journal";
+import { useCreateClass, useCreateStudent, useCreateTeacher, useUpdateStudent } from "@/hooks/journal";
+import { usersPageStyles } from "./UsersPage.styles";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Справочники
  * ────────────────────────────────────────────────────────────────────────*/
 
-const ROLE_LABELS: Record<string, string> = {
-  [Role.Admin]: "Администратор",
-  [Role.Teacher]: "Учитель",
-  [Role.Student]: "Студент",
-  [Role.Unauthorized]: "Не назначена",
+/** Роль → ключ перевода. Сам перевод берём через t(roleKey(role)) в компоненте. */
+const ROLE_KEYS: Record<string, string> = {
+  [Role.Admin]: "roles.admin",
+  [Role.Teacher]: "roles.teacher",
+  [Role.Student]: "roles.student",
+  [Role.Unauthorized]: "roles.unassigned",
 };
 
 /** Роли, которые можно назначить (без «пустой»). */
 const ASSIGNABLE_ROLES: TRole[] = [Role.Student, Role.Teacher, Role.Admin, Role.Unauthorized];
 
-const ACCEPTED_HEADERS =
-  "Логин / ФИО · Email / Почта · Пароль · Класс / Группа · Роль";
+function roleKey(role: TRole | string | undefined): string {
+  return ROLE_KEYS[role ?? ""] ?? "roles.unassigned";
+}
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Утилиты
@@ -37,10 +41,6 @@ function generatePassword(len = 10): string {
   let out = "";
   for (let i = 0; i < len; i++) out += alphabet[buf[i] % alphabet.length];
   return out;
-}
-
-function roleLabel(role: TRole | string | undefined): string {
-  return ROLE_LABELS[role ?? ""] ?? "Не назначена";
 }
 
 function downloadBlob(content: BlobPart, filename: string, type: string) {
@@ -98,7 +98,7 @@ function rowFromPerson(
   const login = p.login ?? "";
   const email = p.email ?? "";
   // роль из файла, только если она реальная (не пустая); иначе — дефолт
-  const fromFileRole = p.role && p.role !== Role.Unauthorized ? p.role : undefined;
+  const fromFileRole = p.role && (p.role as string) !== Role.Unauthorized ? p.role : undefined;
   const autoRole = !fromFileRole;
   const role = (fromFileRole ?? defaultRole) as TRole;
 
@@ -121,13 +121,6 @@ function rowFromPerson(
   };
 }
 
-/** Возвращает текст ошибки строки или null, если всё валидно. */
-function validateRow(r: ImportRow): string | null {
-  if (!r.role) return "Не выбрана роль";
-  const person = new Person(r.login, r.email, r.password, r.group, r.role);
-  return person.validate();
-}
-
 /* ──────────────────────────────────────────────────────────────────────────
  * Главный компонент
  * ────────────────────────────────────────────────────────────────────────*/
@@ -135,6 +128,7 @@ function validateRow(r: ImportRow): string | null {
 type TabKey = "import" | "manage";
 
 export default function UsersPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>("import");
 
   return (
@@ -143,21 +137,21 @@ export default function UsersPage() {
 
       <header className="usp__head">
         <div>
-          <h1 className="usp__title">Пользователи</h1>
+          <h1 className="usp__title">{t("users.title")}</h1>
           <p className="usp__subtitle">
-            Загрузка студентов и учителей из Excel и управление их ролями.
+            {t("users.subtitle")}
           </p>
         </div>
       </header>
 
-      <nav className="usp__tabs" role="tablist" aria-label="Разделы">
+      <nav className="usp__tabs" role="tablist" aria-label={t("users.tabsAria")}>
         <button
           role="tab"
           aria-selected={tab === "import"}
           className={`usp__tab ${tab === "import" ? "is-active" : ""}`}
           onClick={() => setTab("import")}
         >
-          Импорт из Excel
+          {t("users.tabImport")}
         </button>
         <button
           role="tab"
@@ -165,7 +159,7 @@ export default function UsersPage() {
           className={`usp__tab ${tab === "manage" ? "is-active" : ""}`}
           onClick={() => setTab("manage")}
         >
-          Все пользователи
+          {t("users.tabManage")}
         </button>
       </nav>
 
@@ -179,6 +173,9 @@ export default function UsersPage() {
  * ────────────────────────────────────────────────────────────────────────*/
 
 function ImportTab({ onDone }: { onDone: () => void }) {
+  const { t } = useTranslation();
+  const roleLabel = (role: TRole | string | undefined) => t(roleKey(role));
+
   const { importUsers } = useImportUsers();
   const createClass = useCreateClass();
   const createStudent = useCreateStudent();
@@ -252,10 +249,10 @@ function ImportTab({ onDone }: { onDone: () => void }) {
         setExel(null);
         setRows([]);
         setFileName("");
-        setFileError("Не удалось открыть файл. Поддерживаются .xlsx и .xls.");
+        setFileError(t("users.fileOpenError"));
       }
     },
-    [parseSheet, defaultRole, autoPassword],
+    [parseSheet, defaultRole, autoPassword, t],
   );
 
   const selectSheet = (idx: number) => {
@@ -322,8 +319,20 @@ function ImportTab({ onDone }: { onDone: () => void }) {
     return dupIds;
   }, [rows]);
 
+  /** Возвращает текст ошибки строки или null, если всё валидно. */
+  const validateRow = useCallback(
+    (r: ImportRow): string | null => {
+      if (!r.role) return t("users.errNoRole");
+      const person = new Person(r.login, r.email, r.password, r.group, r.role);
+      // Сообщения person.validate() приходят из domain/person.ts и здесь не
+      // локализуются — при необходимости переведите их там же.
+      return person.validate();
+    },
+    [t],
+  );
+
   const rowIssue = (r: ImportRow): string | null => {
-    if (duplicates.has(r.id)) return "Дубликат логина или email в файле";
+    if (duplicates.has(r.id)) return t("users.errDuplicate");
     return validateRow(r);
   };
 
@@ -337,7 +346,7 @@ function ImportTab({ onDone }: { onDone: () => void }) {
       else ready++;
     }
     return { total: rows.length, ready, errors };
-  }, [rows, duplicates]);
+  }, [rows, duplicates, validateRow]);
 
   const submit = async () => {
     setSubmitError(null);
@@ -401,7 +410,7 @@ function ImportTab({ onDone }: { onDone: () => void }) {
       setExel(null);
       setFileName("");
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "Не удалось создать пользователей");
+      setSubmitError(err instanceof Error ? err.message : t("users.createError"));
     } finally {
       setSubmitting(false);
     }
@@ -410,19 +419,19 @@ function ImportTab({ onDone }: { onDone: () => void }) {
   const exportCredentials = () => {
     if (!result) return;
     const aoa: (string | number)[][] = [
-      ["Логин", "Email", "Пароль", "Роль"],
+      [t("users.colLogin"), t("users.colEmail"), t("users.colPassword"), t("users.colRole")],
       ...result.users.map((r) => [r.login, r.email, r.password, roleLabel(r.role)]),
     ];
-    downloadXlsx(aoa, "Учётные данные", "users-credentials.xlsx", [16, 26, 14, 14]);
+    downloadXlsx(aoa, t("users.sheetCredentials"), "users-credentials.xlsx", [16, 26, 14, 14]);
   };
 
   const downloadTemplate = () => {
     const aoa: (string | number)[][] = [
-      ["Логин", "Email", "Пароль", "Класс", "Роль"],
-      ["ivanov_ii", "ivanov@school.ru", "", "9А", "Студент"],
-      ["petrova_aa", "petrova@school.ru", "", "9А", "Учитель"],
+      [t("users.colLogin"), t("users.colEmail"), t("users.colPassword"), t("users.colClass"), t("users.colRole")],
+      ["ivanov_ii", "ivanov@school.ru", "", "9А", roleLabel(Role.Student)],
+      ["petrova_aa", "petrova@school.ru", "", "9А", roleLabel(Role.Teacher)],
     ];
-    downloadXlsx(aoa, "Пользователи", "import-template.xlsx", [16, 26, 14, 8, 14]);
+    downloadXlsx(aoa, t("users.sheetUsers"), "import-template.xlsx", [16, 26, 14, 8, 14]);
   };
 
   /* ── Экран успеха ───────────────────────────────────────────────────── */
@@ -430,19 +439,19 @@ function ImportTab({ onDone }: { onDone: () => void }) {
     return (
       <section className="usp__card usp__success">
         <div className="usp__success-icon" aria-hidden>✓</div>
-        <h2 className="usp__success-title">Создано пользователей: {result.count}</h2>
+        <h2 className="usp__success-title">{t("users.successTitle", { count: result.count })}</h2>
         <p className="usp__muted">
-          Сохраните логины и пароли — раздайте их пользователям для первого входа.
+          {t("users.successHint")}
         </p>
         <div className="usp__row-actions">
           <button className="btn btn--primary" onClick={exportCredentials}>
-            Скачать логины и пароли (Excel)
+            {t("users.exportCreds")}
           </button>
           <button className="btn btn--ghost" onClick={() => setResult(null)}>
-            Импортировать ещё
+            {t("users.importMore")}
           </button>
           <button className="btn btn--ghost" onClick={onDone}>
-            К списку пользователей
+            {t("users.toList")}
           </button>
         </div>
       </section>
@@ -455,27 +464,27 @@ function ImportTab({ onDone }: { onDone: () => void }) {
       <div className="usp__card">
         <div className="usp__dropzone">
           <div className="usp__drop-text">
-            <strong>Выберите файл Excel</strong>
-            <span className="usp__muted">Поддерживаемые колонки: {ACCEPTED_HEADERS}</span>
+            <strong>{t("users.chooseFile")}</strong>
+            <span className="usp__muted">{t("users.supportedColumns", { headers: t("users.acceptedHeaders") })}</span>
           </div>
           <div className="usp__drop-actions">
             <FileUploader onFileSelect={handleFile} accept=".xlsx,.xls" />
             <button className="btn btn--ghost btn--sm" onClick={downloadTemplate}>
-              Скачать шаблон
+              {t("users.downloadTemplate")}
             </button>
           </div>
         </div>
 
         {fileName && (
           <p className="usp__filename">
-            Файл: <strong>{fileName}</strong>
+            {t("users.fileLabel")}: <strong>{fileName}</strong>
           </p>
         )}
         {fileError && <p className="usp__error">{fileError}</p>}
 
         {exel && exel.pages > 1 && (
-          <div className="usp__sheets" role="group" aria-label="Листы книги">
-            <span className="usp__muted usp__sheets-label">Лист:</span>
+          <div className="usp__sheets" role="group" aria-label={t("users.sheetsAria")}>
+            <span className="usp__muted usp__sheets-label">{t("users.sheetLabel")}</span>
             {Array.from({ length: exel.pages }).map((_, i) => (
               <button
                 key={i}
@@ -490,9 +499,9 @@ function ImportTab({ onDone }: { onDone: () => void }) {
 
         <div className="usp__manual">
           <span className="usp__manual-line" aria-hidden />
-          <span className="usp__muted">или</span>
+          <span className="usp__muted">{t("users.orDivider")}</span>
           <button className="btn btn--ghost btn--sm" onClick={addBlankRow}>
-            + Добавить пользователя вручную
+            {t("users.addManual")}
           </button>
           <span className="usp__manual-line" aria-hidden />
         </div>
@@ -502,7 +511,7 @@ function ImportTab({ onDone }: { onDone: () => void }) {
         <>
           <div className="usp__card usp__options">
             <label className="usp__field">
-              <span className="usp__muted">Роль по умолчанию</span>
+              <span className="usp__muted">{t("users.defaultRole")}</span>
               <select
                 value={defaultRole}
                 onChange={(e) => changeDefaultRole(e.target.value as TRole)}
@@ -521,14 +530,14 @@ function ImportTab({ onDone }: { onDone: () => void }) {
                 checked={autoPassword}
                 onChange={(e) => toggleAutoPassword(e.target.checked)}
               />
-              <span>Генерировать пароль для пустых ячеек</span>
+              <span>{t("users.autoPassword")}</span>
             </label>
 
             <div className="usp__stats">
-              <span className="badge badge--neutral">Всего: {stats.total}</span>
-              <span className="badge badge--ok">К созданию: {stats.ready}</span>
+              <span className="badge badge--neutral">{t("users.statsTotal", { count: stats.total })}</span>
+              <span className="badge badge--ok">{t("users.statsReady", { count: stats.ready })}</span>
               {stats.errors > 0 && (
-                <span className="badge badge--err">С ошибками: {stats.errors}</span>
+                <span className="badge badge--err">{t("users.statsErrors", { count: stats.errors })}</span>
               )}
             </div>
           </div>
@@ -538,12 +547,12 @@ function ImportTab({ onDone }: { onDone: () => void }) {
               <thead>
                 <tr>
                   <th className="usp__col-check" />
-                  <th>Логин</th>
-                  <th>Email</th>
-                  <th>Пароль</th>
-                  <th>Класс</th>
-                  <th>Роль</th>
-                  <th>Статус</th>
+                  <th>{t("users.colLogin")}</th>
+                  <th>{t("users.colEmail")}</th>
+                  <th>{t("users.colPassword")}</th>
+                  <th>{t("users.colClass")}</th>
+                  <th>{t("users.colRole")}</th>
+                  <th>{t("users.colStatus")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -557,7 +566,7 @@ function ImportTab({ onDone }: { onDone: () => void }) {
                           type="checkbox"
                           checked={r.include}
                           onChange={(e) => patchRow(r.id, { include: e.target.checked })}
-                          aria-label="Включить строку в импорт"
+                          aria-label={t("users.includeRowAria")}
                         />
                       </td>
                       <td>
@@ -589,10 +598,10 @@ function ImportTab({ onDone }: { onDone: () => void }) {
                           value={r.group}
                           onChange={(e) => patchRow(r.id, { group: e.target.value })}
                         >
-                          <option value="">— без класса —</option>
+                          <option value="">{t("users.noClass")}</option>
                           {/* значение из файла, даже если такого класса ещё нет */}
                           {r.group && !classNames.includes(r.group) && (
-                            <option value={r.group}>{r.group} (новый)</option>
+                            <option value={r.group}>{t("users.newClassSuffix", { name: r.group })}</option>
                           )}
                           {classNames.map((name) => (
                             <option key={name} value={name}>
@@ -617,13 +626,13 @@ function ImportTab({ onDone }: { onDone: () => void }) {
                       </td>
                       <td>
                         {disabled ? (
-                          <span className="badge badge--neutral">Пропущена</span>
+                          <span className="badge badge--neutral">{t("users.statusSkipped")}</span>
                         ) : issue ? (
                           <span className="badge badge--err" title={issue}>
                             {issue}
                           </span>
                         ) : (
-                          <span className="badge badge--ok">Готова</span>
+                          <span className="badge badge--ok">{t("users.statusReady")}</span>
                         )}
                       </td>
                     </tr>
@@ -633,7 +642,7 @@ function ImportTab({ onDone }: { onDone: () => void }) {
             </table>
             <div className="usp__table-foot">
               <button className="btn btn--ghost btn--sm" onClick={addBlankRow}>
-                + Добавить ещё строку
+                {t("users.addRow")}
               </button>
             </div>
           </div>
@@ -642,15 +651,14 @@ function ImportTab({ onDone }: { onDone: () => void }) {
 
           <div className="usp__footer">
             <p className="usp__muted">
-              Для каждого создаётся учётная запись и запись в журнале (студент — с классом,
-              учитель — без). Недостающие классы создаются автоматически.
+              {t("users.createFooter")}
             </p>
             <button
               className="btn btn--primary"
               disabled={stats.ready === 0 || submitting}
               onClick={submit}
             >
-              {submitting ? "Создание…" : `Создать ${stats.ready} пользователей`}
+              {submitting ? t("users.creating") : t("users.createButton", { count: stats.ready })}
             </button>
           </div>
         </>
@@ -664,16 +672,76 @@ function ImportTab({ onDone }: { onDone: () => void }) {
  * ────────────────────────────────────────────────────────────────────────*/
 
 function ManageTab() {
+  const { t } = useTranslation();
+  const roleLabel = (role: TRole | string | undefined) => t(roleKey(role));
+
   const { users, total, loading, error, refetch } = useListUsers();
   const { setRole } = useSetRole();
+  const updateStudent = useUpdateStudent();
 
   // Оптимистичные изменения роли: id → новая роль. Накладываются на серверные
   // данные при рендере, поэтому отдельное зеркало стейта/эффект не нужны.
   const [overrides, setOverrides] = useState<Record<string, TRole>>({});
+  // Оптимистичные изменения класса студента: id → classId ("" = без класса).
+  const [classOverrides, setClassOverrides] = useState<Record<string, string>>({});
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<TRole | "all">("all");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [savingClassId, setSavingClassId] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+
+  // Справочник классов и карта «студент → класс». Грузим один раз за монтирование
+  // напрямую через клиент (как в ImportTab) — без useQuery, чтобы не плодить
+  // повторные запросы при ре-рендерах.
+  const [classList, setClassList] = useState<Class[]>([]);
+  const [studentClass, setStudentClass] = useState<Record<string, string>>({});
+  const [refDataLoading, setRefDataLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setRefDataLoading(true);
+      try {
+        const res = await classesApi.listClasses({});
+        const cl = res?.classes ?? [];
+        if (cancelled) return;
+        setClassList(cl);
+
+        // Текущий класс студента отдельным полем у User не приходит, поэтому
+        // собираем карту id → classId, пройдясь по спискам учеников каждого класса.
+        const map: Record<string, string> = {};
+        await Promise.all(
+          cl.map(async (c) => {
+            const classId = c.id;
+            if (!classId) return;
+            try {
+              const sr = await studentsApi.listStudents({
+                classId,
+                limit: 1000,
+                offset: 0,
+              });
+              for (const s of sr?.students ?? []) {
+                if (s.id) map[s.id] = classId;
+              }
+            } catch {
+              /* недоступность одного класса не должна ронять всю карту */
+            }
+          }),
+        );
+        if (!cancelled) setStudentClass(map);
+      } catch {
+        if (!cancelled) {
+          setClassList([]);
+          setStudentClass({});
+        }
+      } finally {
+        if (!cancelled) setRefDataLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const list = useMemo<User[]>(
     () =>
@@ -712,11 +780,51 @@ function ManageTab() {
         return next;
       });
       setRowError(
-        `Не удалось изменить роль для ${user.login || user.email}: ` +
-          (err instanceof Error ? err.message : "ошибка сети"),
+        t("users.changeRoleError", {
+          user: user.login || user.email,
+          message: err instanceof Error ? err.message : t("users.networkError"),
+        }),
       );
     } finally {
       setSavingId(null);
+    }
+  };
+
+  // Текущий класс пользователя с учётом оптимистичных правок.
+  const classOf = (user: User): string => {
+    const id = user.id;
+    if (!id) return "";
+    if (classOverrides[id] != null) return classOverrides[id];
+    return studentClass[id] ?? "";
+  };
+
+  const changeClass = async (user: User, nextClassId: string) => {
+    const id = user.id;
+    if (!id) return;
+    const current = classOf(user);
+    if (nextClassId === current) return;
+
+    setRowError(null);
+    setSavingClassId(id);
+    setClassOverrides((o) => ({ ...o, [id]: nextClassId })); // оптимистично
+
+    try {
+      await updateStudent.mutate({ id, classId: nextClassId || undefined });
+    } catch (err) {
+      setClassOverrides((o) => {
+        const next = { ...o };
+        delete next[id];
+        return next;
+      });
+      setRowError(
+        t("users.changeClassError", {
+          user: user.login || user.email,
+          message: err instanceof Error ? err.message : t("users.networkError"),
+          defaultValue: "Не удалось изменить класс пользователя {{user}}: {{message}}",
+        }),
+      );
+    } finally {
+      setSavingClassId(null);
     }
   };
 
@@ -725,12 +833,12 @@ function ManageTab() {
       <div className="usp__card usp__toolbar">
         <input
           className="usp__search"
-          placeholder="Поиск по логину или email"
+          placeholder={t("users.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as TRole | "all")}>
-          <option value="all">Все роли</option>
+          <option value="all">{t("roles.allRoles")}</option>
           {ASSIGNABLE_ROLES.map((r) => (
             <option key={r} value={r}>
               {roleLabel(r)}
@@ -738,10 +846,10 @@ function ManageTab() {
           ))}
         </select>
         <span className="usp__muted usp__count">
-          {loading ? "Загрузка…" : `Найдено: ${filtered.length} из ${total}`}
+          {loading ? t("common.loading") : t("users.found", { count: filtered.length, total })}
         </span>
         <button className="btn btn--ghost btn--sm" onClick={() => void refetch()} disabled={loading}>
-          Обновить
+          {t("common.refresh")}
         </button>
       </div>
 
@@ -752,24 +860,25 @@ function ManageTab() {
           <div className="usp__empty">
             <p>{error}</p>
             <button className="btn btn--primary btn--sm" onClick={() => void refetch()}>
-              Повторить
+              {t("common.retry")}
             </button>
           </div>
         ) : loading ? (
-          <div className="usp__empty usp__muted">Загружаем пользователей…</div>
+          <div className="usp__empty usp__muted">{t("users.loadingUsers")}</div>
         ) : filtered.length === 0 ? (
           <div className="usp__empty usp__muted">
             {list.length === 0
-              ? "Пользователей пока нет. Импортируйте их из Excel на соседней вкладке."
-              : "Под фильтры никто не подходит. Измените поиск или роль."}
+              ? t("users.empty")
+              : t("users.noMatch")}
           </div>
         ) : (
           <table className="usp__table">
             <thead>
               <tr>
-                <th>Логин</th>
-                <th>Email</th>
-                <th className="usp__col-role">Роль</th>
+                <th>{t("users.colLogin")}</th>
+                <th>{t("users.colEmail")}</th>
+                <th>{t("users.colClass")}</th>
+                <th className="usp__col-role">{t("users.colRole")}</th>
               </tr>
             </thead>
             <tbody>
@@ -777,24 +886,57 @@ function ManageTab() {
                 <tr key={u.id ?? u.email ?? u.login}>
                   <td>{u.login || "—"}</td>
                   <td>{u.email || "—"}</td>
+                  <td>
+                    {(u.role ?? "") === Role.Student ? (
+                      <div className="usp__role-cell">
+                        <select
+                          value={classOf(u)}
+                          disabled={!u.id || savingClassId === u.id || refDataLoading}
+                          onChange={(e) => void changeClass(u, e.target.value)}
+                        >
+                          <option value="">{t("users.noClass")}</option>
+                          {classList.map((c) =>
+                            c.id ? (
+                              <option key={c.id} value={c.id}>
+                                {c.className}
+                              </option>
+                            ) : null,
+                          )}
+                        </select>
+                        {savingClassId === u.id && <span className="usp__spinner" aria-hidden />}
+                      </div>
+                    ) : (
+                      <span className="usp__muted">—</span>
+                    )}
+                  </td>
                   <td className="usp__col-role">
-                    <div className="usp__role-cell">
-                      <select
-                        value={u.role ?? Role.Unauthorized}
-                        disabled={!u.id || savingId === u.id}
-                        onChange={(e) => void changeRole(u, e.target.value as TRole)}
+                    {(u.role ?? "") === Role.Admin ? (
+                      <span
+                        title={t("users.adminRoleLocked", {
+                          defaultValue: "Роль администратора изменить нельзя",
+                        })}
                       >
-                        {(u.role ?? "") === Role.Unauthorized && (
-                          <option value={Role.Unauthorized}>Не назначена</option>
-                        )}
-                        {ASSIGNABLE_ROLES.map((r) => (
-                          <option key={r} value={r}>
-                            {roleLabel(r)}
-                          </option>
-                        ))}
-                      </select>
-                      {savingId === u.id && <span className="usp__spinner" aria-hidden />}
-                    </div>
+                        {roleLabel(Role.Admin)}
+                      </span>
+                    ) : (
+                      <div className="usp__role-cell">
+                        <select
+                          value={u.role ?? Role.Unauthorized}
+                          disabled={!u.id || savingId === u.id}
+                          onChange={(e) => void changeRole(u, e.target.value as TRole)}
+                        >
+                          {(u.role ?? "") === Role.Unauthorized && (
+                            <option value={Role.Unauthorized}>{t("roles.unassigned")}</option>
+                          )}
+                          {ASSIGNABLE_ROLES.map((r) => (
+                            <option key={r} value={r}>
+                              {roleLabel(r)}
+                            </option>
+                          ))}
+                        </select>
+                        {savingId === u.id && <span className="usp__spinner" aria-hidden />}
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -807,171 +949,10 @@ function ManageTab() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
- * Стили (бело-оранжевая тема, scoped через .usp)
+ * Стили (бело-оранжевая тема, scoped через .usp) — вынесены в
+ * ./UsersPage.styles.ts
  * ────────────────────────────────────────────────────────────────────────*/
 
 function PageStyles() {
-  return (
-    <style>{`
-      .usp {
-        --orange: #f97316;
-        --orange-dark: #ea580c;
-        --orange-soft: #fff7ed;
-        --orange-border: #fed7aa;
-        --ink: #1f2937;
-        --muted: #6b7280;
-        --line: #f0f0f0;
-        --err: #dc2626;
-        --err-bg: #fef2f2;
-        --ok: #16a34a;
-        --ok-bg: #f0fdf4;
-
-        max-width: 1080px;
-        margin: 0 auto;
-        padding: 32px 20px 64px;
-        color: var(--ink);
-        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      }
-
-      .usp__head { margin-bottom: 20px; }
-      .usp__title { font-size: 26px; font-weight: 700; margin: 0; }
-      .usp__subtitle { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
-      .usp__muted { color: var(--muted); font-size: 13px; }
-
-      .usp__tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); margin-bottom: 24px; }
-      .usp__tab {
-        background: none; border: none; cursor: pointer;
-        padding: 12px 16px; font-size: 15px; color: var(--muted);
-        border-bottom: 2px solid transparent; margin-bottom: -1px;
-      }
-      .usp__tab:hover { color: var(--ink); }
-      .usp__tab.is-active { color: var(--orange-dark); border-bottom-color: var(--orange); font-weight: 600; }
-
-      .usp__stack { display: flex; flex-direction: column; gap: 16px; }
-      .usp__card {
-        background: #fff; border: 1px solid var(--line); border-radius: 14px;
-        padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,.03);
-      }
-
-      .usp__dropzone {
-        display: flex; align-items: center; justify-content: space-between;
-        gap: 16px; flex-wrap: wrap;
-        border: 1.5px dashed var(--orange-border); background: var(--orange-soft);
-        border-radius: 12px; padding: 18px 20px;
-      }
-      .usp__drop-text { display: flex; flex-direction: column; gap: 4px; }
-      .usp__drop-actions { display: flex; align-items: center; gap: 10px; }
-      .usp__filename { font-size: 13px; margin: 12px 0 0; color: var(--ink); }
-
-      .usp__manual { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
-      .usp__manual-line { flex: 1; height: 1px; background: var(--line); }
-
-      .usp__table-foot { padding: 12px 14px; border-top: 1px solid var(--line); }
-
-      .usp__sheets { display: flex; align-items: center; gap: 6px; margin-top: 14px; flex-wrap: wrap; }
-      .usp__sheets-label { margin-right: 4px; }
-      .usp__sheet {
-        min-width: 30px; height: 30px; border: 1px solid var(--orange-border);
-        background: #fff; border-radius: 8px; cursor: pointer; color: var(--ink);
-      }
-      .usp__sheet.is-active { background: var(--orange); border-color: var(--orange); color: #fff; }
-
-      .usp__options { display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-      .usp__field { display: flex; flex-direction: column; gap: 6px; }
-      .usp__checkbox { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
-      .usp__stats { display: flex; gap: 8px; margin-left: auto; flex-wrap: wrap; }
-
-      .usp__table-wrap { padding: 0; overflow-x: auto; }
-      .usp__table { width: 100%; border-collapse: collapse; font-size: 14px; }
-      .usp__table th {
-        text-align: left; padding: 12px 14px; background: var(--orange-soft);
-        color: var(--orange-dark); font-weight: 600; font-size: 12px;
-        text-transform: uppercase; letter-spacing: .03em; white-space: nowrap;
-      }
-      .usp__table td { padding: 8px 14px; border-top: 1px solid var(--line); vertical-align: middle; }
-      .usp__table tbody tr:hover { background: #fffdfa; }
-      .usp__table tr.is-disabled { opacity: .5; }
-      .usp__table tr.is-invalid td { background: var(--err-bg); }
-      .usp__col-check { width: 44px; text-align: center; }
-      .usp__col-role { width: 220px; }
-
-      .cell-input, .usp__search, .usp__field select, .usp__toolbar select,
-      .usp__table select {
-        width: 100%; box-sizing: border-box; border: 1px solid #e5e7eb;
-        border-radius: 8px; padding: 7px 10px; font-size: 14px; background: #fff;
-        color: var(--ink); font-family: inherit;
-      }
-      .cell-input--sm { max-width: 90px; }
-      .usp__group-select { max-width: 150px; }
-      .cell-input.is-auto { color: var(--orange-dark); font-style: italic; }
-      .cell-input:focus, .usp__search:focus, select:focus {
-        outline: none; border-color: var(--orange); box-shadow: 0 0 0 3px rgba(249,115,22,.15);
-      }
-
-      .usp__toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-      .usp__search { flex: 1; min-width: 220px; }
-      .usp__toolbar select { width: auto; min-width: 150px; }
-      .usp__count { margin-left: auto; white-space: nowrap; }
-
-      .usp__role-cell { display: flex; align-items: center; gap: 8px; }
-      .usp__spinner {
-        width: 14px; height: 14px; border: 2px solid var(--orange-border);
-        border-top-color: var(--orange); border-radius: 50%;
-        animation: usp-spin .7s linear infinite; flex: none;
-      }
-      @keyframes usp-spin { to { transform: rotate(360deg); } }
-
-      .usp__empty { padding: 48px 20px; text-align: center; display: flex;
-        flex-direction: column; align-items: center; gap: 12px; }
-
-      .usp__footer { display: flex; align-items: center; justify-content: space-between;
-        gap: 16px; flex-wrap: wrap; }
-      .usp__error {
-        margin: 0; color: var(--err); background: var(--err-bg);
-        border: 1px solid #fecaca; border-radius: 10px; padding: 10px 14px; font-size: 14px;
-      }
-
-      .badge { display: inline-block; padding: 3px 9px; border-radius: 999px;
-        font-size: 12px; font-weight: 600; white-space: nowrap; }
-      .badge--ok { background: var(--ok-bg); color: var(--ok); }
-      .badge--err { background: var(--err-bg); color: var(--err);
-        max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
-      .badge--neutral { background: #f3f4f6; color: var(--muted); }
-
-      .btn { border: none; border-radius: 9px; padding: 10px 18px; font-size: 14px;
-        font-weight: 600; cursor: pointer; font-family: inherit; transition: background .15s, border-color .15s; }
-      .btn--sm { padding: 7px 12px; font-size: 13px; }
-      .btn--primary { background: var(--orange); color: #fff; }
-      .btn--primary:hover:not(:disabled) { background: var(--orange-dark); }
-      .btn--ghost { background: #fff; color: var(--orange-dark); border: 1px solid var(--orange-border); }
-      .btn--ghost:hover:not(:disabled) { background: var(--orange-soft); }
-      .btn:disabled { opacity: .5; cursor: not-allowed; }
-
-      /* Стилизуем кнопку выбора файла внутри FileUploader без правки компонента */
-      .usp__dropzone button[type="button"] {
-        background: var(--orange); color: #fff; border: none; border-radius: 9px;
-        padding: 10px 18px; font-size: 14px; font-weight: 600; cursor: pointer;
-        font-family: inherit;
-      }
-      .usp__dropzone button[type="button"]:hover { background: var(--orange-dark); }
-
-      .usp__success { text-align: center; display: flex; flex-direction: column;
-        align-items: center; gap: 10px; padding: 40px 24px; }
-      .usp__success-icon {
-        width: 56px; height: 56px; border-radius: 50%; background: var(--ok-bg);
-        color: var(--ok); font-size: 28px; display: flex; align-items: center;
-        justify-content: center; margin-bottom: 4px;
-      }
-      .usp__success-title { margin: 0; font-size: 20px; }
-      .usp__row-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
-
-      @media (max-width: 640px) {
-        .usp { padding: 20px 14px 48px; }
-        .usp__options { gap: 14px; }
-        .usp__stats { margin-left: 0; }
-        .usp__count { margin-left: 0; }
-        .usp__footer { flex-direction: column; align-items: stretch; }
-      }
-    `}</style>
-  );
+  return <style>{usersPageStyles}</style>;
 }

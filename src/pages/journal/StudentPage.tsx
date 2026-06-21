@@ -1,12 +1,22 @@
-import { useMemo } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Navigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import * as XLSX from "xlsx";
+import i18n from "@/i18n";
 import { useStudent } from "@/hooks/journal/useStudents";
 import { useGrades } from "@/hooks/journal/useGrades";
 import { useSubjects } from "@/hooks/journal/useSubjects";
+import { useStatusCodes } from "@/hooks/journal/useStatusCodes";
+import { useHomeworkList } from "@/hooks/journal/useHomework";
+import { useLogout } from "@/hooks/auth/useLogout";
+import { ThemeToggle } from "@/theme";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
+import { styles } from "./StudentPage.styles";
 
 /**
- * Профиль студента — общая инфа + оценки за текущий учебный год,
- * сгруппированные по предметам, со средним баллом.
+ * Профиль студента — общая инфа, оценки и статус-коды за учебный год
+ * в виде таблицы (с комментариями), выгрузка в Excel и просмотр
+ * домашнего задания по предмету.
  */
 export default function StudentPage() {
   const { studentId } = useParams<{ studentId: string }>();
@@ -19,10 +29,13 @@ export default function StudentPage() {
 }
 
 function StudentView({ studentId }: { studentId: string }) {
+  const { t } = useTranslation();
+  const { logout } = useLogout();
   const range = useMemo(() => currentSchoolYearRange(), []);
 
   const studentState  = useStudent({ studentId });
   const subjectsState = useSubjects();
+  const statusState   = useStatusCodes();
 
   const gradesParams = useMemo(
     () => ({
@@ -34,18 +47,48 @@ function StudentView({ studentId }: { studentId: string }) {
   );
   const gradesState = useGrades(gradesParams);
 
-  const student  = studentState.data;
-  const subjects = subjectsState.data?.subjects ?? [];
-  const grades   = gradesState.data?.grades;
+  const student     = studentState.data;
+  const subjects    = useMemo(() => subjectsState.data?.subjects ?? [], [subjectsState.data]);
+  const statusCodes = useMemo(() => statusState.data?.statusCodes ?? [], [statusState.data]);
+  const grades      = gradesState.data?.grades;
 
-  const isLoading =
-    studentState.loading || subjectsState.loading || gradesState.loading;
-  const errorMessage =
-    studentState.error || subjectsState.error || gradesState.error;
+  // ── Карты для быстрого резолва id → название ──────────────────
+  const subjectNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of subjects) m.set(s.id, s.fullName);
+    return m;
+  }, [subjects]);
 
-  // Группировка оценок по предметам
+  const statusNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of statusCodes) m.set(s.id, s.fullName);
+    return m;
+  }, [statusCodes]);
+
+  // ── Домашнее задание (по выбранному предмету) ─────────────────
+  const [hwSubjectId, setHwSubjectId] = useState<string>("");
+
+  useEffect(() => {
+    if (!hwSubjectId && subjects.length) {
+      setHwSubjectId(subjects[0].id);
+    }
+  }, [subjects, hwSubjectId]);
+
+  const hwParams = useMemo(
+    () => ({
+      classId:   student?.classId ?? "",
+      subjectId: hwSubjectId,
+    }),
+    [student?.classId, hwSubjectId],
+  );
+  const homeworkState = useHomeworkList(hwParams, {
+    skip: !student?.classId || !hwSubjectId,
+  });
+  const homeworks = homeworkState.data?.homeworks ?? [];
+
+  // ── Группировка / сортировка оценок ───────────────────────────
   const bySubject = useMemo(() => {
-    const map = new Map<string, typeof grades>();
+    const map = new Map<string, NonNullable<typeof grades>>();
     for (const g of grades ?? []) {
       const list = map.get(g.subjectId) ?? [];
       list.push(g);
@@ -54,14 +97,89 @@ function StudentView({ studentId }: { studentId: string }) {
     return map;
   }, [grades]);
 
+  const sortedGrades = useMemo(
+    () =>
+      [...(grades ?? [])].sort(
+        (a, b) =>
+          (toDate(b.dateOfGrade)?.getTime() ?? 0) -
+          (toDate(a.dateOfGrade)?.getTime() ?? 0),
+      ),
+    [grades],
+  );
+
+  const subjectStats = useMemo(
+    () =>
+      subjects.map((s) => {
+        const list = bySubject.get(s.id) ?? [];
+        const numeric = list
+          .map((g) => g.grade)
+          .filter((v): v is number => typeof v === "number");
+        const avg = numeric.length
+          ? numeric.reduce((acc, n) => acc + n, 0) / numeric.length
+          : null;
+        return { id: s.id, name: s.fullName, total: list.length, avg };
+      }),
+    [subjects, bySubject],
+  );
+
+  const isLoading =
+    studentState.loading || subjectsState.loading || gradesState.loading;
+  const errorMessage =
+    studentState.error || subjectsState.error || gradesState.error;
+
+  // ── Выгрузка в Excel ──────────────────────────────────────────
+  function handleExportExcel() {
+    if (!student) return;
+
+    const gradeRows = sortedGrades.map((g) => ({
+      [t("journal.date")]: formatDate(g.dateOfGrade),
+      [t("teachingLoad.subject")]: subjectNameById.get(g.subjectId) ?? "—",
+      [t("student.lessonNo")]: g.lessonNumber ?? "",
+      [t("journal.grade")]: typeof g.grade === "number" ? g.grade : "",
+      [t("journal.status")]: typeof g.grade === "number"
+        ? ""
+        : statusNameById.get(g.statusCodeId ?? "") ?? "",
+      [t("journal.comment")]: g.note ?? "",
+    }));
+
+    const wb = XLSX.utils.book_new();
+
+    const wsGrades = XLSX.utils.json_to_sheet(gradeRows);
+    wsGrades["!cols"] = [
+      { wch: 12 }, { wch: 26 }, { wch: 8 },
+      { wch: 8 },  { wch: 20 }, { wch: 45 },
+    ];
+    XLSX.utils.book_append_sheet(wb, wsGrades, t("journal.sheetGrades"));
+
+    const statusRows = statusCodes.map((s) => ({ [t("journal.statusCode")]: s.fullName }));
+    if (statusRows.length) {
+      const wsStatus = XLSX.utils.json_to_sheet(statusRows);
+      wsStatus["!cols"] = [{ wch: 30 }];
+      XLSX.utils.book_append_sheet(wb, wsStatus, t("statusCodes.title"));
+    }
+
+    const safeName = student.fullName.replace(/[\\/:*?"<>|]/g, "_").trim();
+    XLSX.writeFile(wb, `${t("journal.sheetGrades")}_${safeName || t("student.studentFallback")}.xlsx`);
+  }
+
+  // ── Рендер ────────────────────────────────────────────────────
   if (isLoading) {
-    return <div style={styles.loading}>Загрузка…</div>;
+    return <div style={styles.loading}>{t("common.loading")}</div>;
   }
 
   if (errorMessage) {
     return (
       <div style={styles.wrapper}>
-        <Link to="/dashboard" style={styles.back}>← Назад</Link>
+        <div style={styles.topBar}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <LanguageSwitcher direction='down'/>
+            <ThemeToggle />
+            <button type="button" onClick={logout} style={styles.logoutBtn} title={t("common.logout")}>
+              <span>⏏</span>
+              <span>{t("common.logout")}</span>
+            </button>
+          </div>
+        </div>
         <div role="alert" style={styles.error}>{errorMessage}</div>
       </div>
     );
@@ -70,84 +188,204 @@ function StudentView({ studentId }: { studentId: string }) {
   if (!student) {
     return (
       <div style={styles.wrapper}>
-        <Link to="/dashboard" style={styles.back}>← Назад</Link>
-        <div style={styles.empty}>Студент не найден.</div>
+        <div style={styles.topBar}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+            <LanguageSwitcher direction='down' />
+            <ThemeToggle />
+            <button type="button" onClick={logout} style={styles.logoutBtn} title={t("common.logout")}>
+              <span>⏏</span>
+              <span>{t("common.logout")}</span>
+            </button>
+          </div>
+        </div>
+        <div style={styles.empty}>{t("student.notFound")}</div>
       </div>
     );
   }
 
+  const hasGrades = sortedGrades.length > 0;
+
   return (
     <div style={styles.wrapper}>
-      <Link to="/dashboard" style={styles.back}>← Назад</Link>
-
       <header style={styles.header}>
         <div style={styles.avatar}>{getInitials(student.fullName)}</div>
         <div>
           <h1 style={styles.title}>{student.fullName}</h1>
-          {student.classId ? (
-            <Link
-              to={`/classes/${student.classId}/journal`}
-              style={styles.classLink}
-            >
-              Перейти в журнал класса →
-            </Link>
-          ) : (
-            <p style={styles.muted}>Не назначен в класс</p>
+          {!student.classId && (
+            <p style={styles.muted}>{t("student.noClass")}</p>
           )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+          <LanguageSwitcher direction='down'/>
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={logout}
+            style={styles.logoutBtn}
+            title={t("common.logout")}
+          >
+            <span>⏏</span>
+            <span>{t("common.logout")}</span>
+          </button>
         </div>
       </header>
 
-      <section>
-        <h2 style={styles.sectionTitle}>Оценки за учебный год</h2>
-
-        {subjects.length === 0 ? (
-          <p style={styles.muted}>Нет данных о предметах.</p>
+      {/* ── Средний балл по предметам ── */}
+      <section style={styles.section}>
+        <h2 style={styles.sectionTitle}>{t("student.avgBySubject")}</h2>
+        {subjectStats.length === 0 ? (
+          <p style={styles.muted}>{t("student.noSubjects")}</p>
         ) : (
-          <div style={styles.subjectGrid}>
-            {subjects.map((subject) => {
-              const subjGrades = bySubject.get(subject.id) ?? [];
-              const numeric = subjGrades
-                .map((g) => g.grade)
-                .filter((v): v is number => typeof v === "number");
-              const avg = numeric.length
-                ? numeric.reduce((s, n) => s + n, 0) / numeric.length
-                : null;
+          <div style={styles.tableScroll}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>{t("teachingLoad.subject")}</th>
+                  <th style={{ ...styles.th, ...styles.thCenter }}>{t("student.gradesCount")}</th>
+                  <th style={{ ...styles.th, ...styles.thCenter }}>{t("student.avgGrade")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {subjectStats.map((s) => (
+                  <tr key={s.id}>
+                    <td style={styles.td}>{s.name}</td>
+                    <td style={{ ...styles.td, ...styles.tdCenter }}>{s.total}</td>
+                    <td style={{ ...styles.td, ...styles.tdCenter }}>
+                      {s.avg !== null ? (
+                        <span style={{ ...styles.avg, ...gradeColor(Math.round(s.avg)) }}>
+                          {s.avg.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span style={styles.muted}>—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
-              return (
-                <article key={subject.id} style={styles.subjectCard}>
-                  <header style={styles.subjectHeader}>
-                    <h3 style={styles.subjectName}>{subject.fullName}</h3>
-                    {avg !== null && (
-                      <span style={styles.avg}>{avg.toFixed(2)}</span>
-                    )}
-                  </header>
+      {/* ── Оценки и статус-коды (таблица) ── */}
+      <section style={styles.section}>
+        <div style={styles.sectionHead}>
+          <h2 style={styles.sectionTitle}>{t("journal.gradesAndStatus")}</h2>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            disabled={!hasGrades}
+            style={{
+              ...styles.exportBtn,
+              ...(hasGrades ? {} : styles.exportBtnDisabled),
+            }}
+          >
+            ↓ {t("journal.downloadExcel")}
+          </button>
+        </div>
 
-                  {subjGrades.length === 0 ? (
-                    <p style={styles.muted}>Нет оценок</p>
-                  ) : (
-                    <div style={styles.gradesList}>
-                      {subjGrades.map((g) => {
-                        const isNumeric = typeof g.grade === "number";
-                        return (
+        {!hasGrades ? (
+          <p style={styles.muted}>{t("student.noGradesYear")}</p>
+        ) : (
+          <div style={styles.tableScroll}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>{t("journal.date")}</th>
+                  <th style={styles.th}>{t("teachingLoad.subject")}</th>
+                  <th style={{ ...styles.th, ...styles.thCenter }}>{t("student.lessonNo")}</th>
+                  <th style={{ ...styles.th, ...styles.thCenter }}>{t("student.gradeOrStatus")}</th>
+                  <th style={styles.th}>{t("journal.comment")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedGrades.map((g) => {
+                  const isNumeric = typeof g.grade === "number";
+                  const statusName =
+                    statusNameById.get(g.statusCodeId ?? "") ?? "—";
+                  return (
+                    <tr key={g.id}>
+                      <td style={{ ...styles.td, ...styles.nowrap }}>
+                        {formatDate(g.dateOfGrade)}
+                      </td>
+                      <td style={styles.td}>
+                        {subjectNameById.get(g.subjectId) ?? "—"}
+                      </td>
+                      <td style={{ ...styles.td, ...styles.tdCenter }}>
+                        {g.lessonNumber ?? "—"}
+                      </td>
+                      <td style={{ ...styles.td, ...styles.tdCenter }}>
+                        {isNumeric ? (
                           <span
-                            key={g.id}
-                            title={g.note}
                             style={{
                               ...styles.gradeBadge,
-                              ...(isNumeric
-                                ? gradeColor(g.grade as number)
-                                : styles.gradeStatus),
+                              ...gradeColor(g.grade as number),
                             }}
                           >
-                            {isNumeric ? g.grade : "Н"}
+                            {g.grade}
                           </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </article>
-              );
-            })}
+                        ) : (
+                          <span style={{ ...styles.gradeBadge, ...styles.gradeStatus }}>
+                            {statusName}
+                          </span>
+                        )}
+                      </td>
+                      <td style={styles.td}>
+                        {g.note ? (
+                          <span style={styles.note}>{g.note}</span>
+                        ) : (
+                          <span style={styles.muted}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* ── Домашнее задание ── */}
+      <section style={styles.section}>
+        <div style={styles.sectionHead}>
+          <h2 style={styles.sectionTitle}>{t("student.homeworkTitle")}</h2>
+          {subjects.length > 0 && (
+            <select
+              value={hwSubjectId}
+              onChange={(e) => setHwSubjectId(e.target.value)}
+              style={styles.select}
+            >
+              {subjects.map((s) => (
+                <option key={s.id} value={s.id}>{s.fullName}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {!student.classId ? (
+          <p style={styles.muted}>{t("student.notAssignedClass")}</p>
+        ) : homeworkState.loading ? (
+          <p style={styles.muted}>{t("common.loading")}</p>
+        ) : homeworkState.error ? (
+          <div role="alert" style={styles.error}>{homeworkState.error}</div>
+        ) : homeworks.length === 0 ? (
+          <p style={styles.muted}>{t("student.noHomeworkSubject")}</p>
+        ) : (
+          <div style={styles.hwList}>
+            {homeworks.map((hw) => (
+              <article key={hw.id} style={styles.hwCard}>
+                <div style={styles.hwMeta}>
+                  <span style={styles.hwGiven}>
+                    {t("student.given", { date: formatDate(hw.start) })}
+                  </span>
+                  <span style={styles.hwDue}>
+                    {t("student.due", { date: formatDate(hw.end) })}
+                  </span>
+                </div>
+                <p style={styles.hwTask}>{hw.descriptionTask}</p>
+              </article>
+            ))}
           </div>
         )}
       </section>
@@ -175,105 +413,30 @@ function currentSchoolYearRange() {
   };
 }
 
-function gradeColor(grade: number): React.CSSProperties {
-  if (grade >= 5) return { background: "#d1fae5", color: "#065f46" };
-  if (grade >= 4) return { background: "#dbeafe", color: "#1e40af" };
-  if (grade >= 3) return { background: "#fef3c7", color: "#92400e" };
-  return { background: "#fee2e2", color: "#991b1b" };
+/** Приводит значение Timestamp (Date | string | number | {seconds}) к Date */
+function toDate(v: unknown): Date | null {
+  if (!v) return null;
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === "string" || typeof v === "number") {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof v === "object" && v !== null && "seconds" in (v as Record<string, unknown>)) {
+    const s = Number((v as { seconds: unknown }).seconds);
+    if (!isNaN(s)) return new Date(s * 1000);
+  }
+  return null;
 }
 
-// ── Styles ────────────────────────────────────────────────────
+function formatDate(v: unknown): string {
+  const d = toDate(v);
+  // Формат даты подстраивается под выбранный язык интерфейса.
+  return d ? d.toLocaleDateString(i18n.language || "ru-RU") : "—";
+}
 
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: { padding: 32, maxWidth: 1000, margin: "0 auto" },
-  back: {
-    display: "inline-block",
-    marginBottom: 16,
-    color: "#2563eb",
-    textDecoration: "none",
-    fontSize: 14,
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    gap: 20,
-    marginBottom: 32,
-    padding: 24,
-    background: "#fff",
-    borderRadius: 8,
-    border: "1px solid #e5e5ea",
-  },
-  avatar: {
-    width: 64,
-    height: 64,
-    borderRadius: "50%",
-    background: "#eef2ff",
-    color: "#3730a3",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 22,
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  title: { margin: "0 0 4px", fontSize: 22, fontWeight: 600 },
-  classLink: { color: "#2563eb", textDecoration: "none", fontSize: 14 },
-  sectionTitle: { margin: "0 0 16px", fontSize: 18, fontWeight: 600 },
-  subjectGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-    gap: 12,
-  },
-  subjectCard: {
-    padding: 16,
-    background: "#fff",
-    borderRadius: 8,
-    border: "1px solid #e5e5ea",
-  },
-  subjectHeader: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  subjectName: { margin: 0, fontSize: 15, fontWeight: 600 },
-  avg: {
-    padding: "2px 8px",
-    background: "#eef2ff",
-    color: "#3730a3",
-    borderRadius: 4,
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  gradesList: { display: "flex", flexWrap: "wrap", gap: 6 },
-  gradeBadge: {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 28,
-    height: 28,
-    padding: "0 6px",
-    borderRadius: 4,
-    fontSize: 13,
-    fontWeight: 600,
-  },
-  gradeStatus: { background: "#fde68a", color: "#78350f" },
-  muted: { color: "#666", fontSize: 13, margin: 0 },
-  loading: { padding: 40, textAlign: "center", color: "#666" },
-  error: {
-    padding: "10px 14px",
-    background: "#fee",
-    color: "#b00020",
-    border: "1px solid #fbb",
-    borderRadius: 6,
-    fontSize: 13,
-  },
-  empty: {
-    padding: 40,
-    textAlign: "center",
-    color: "#666",
-    background: "#fff",
-    borderRadius: 8,
-    border: "1px solid #e5e5ea",
-  },
-};
+function gradeColor(grade: number): React.CSSProperties {
+  if (grade >= 5) return { background: "var(--ok-bg)", color: "var(--ok)" };
+  if (grade >= 4) return { background: "var(--accent-soft)", color: "var(--accent-text)" };
+  if (grade >= 3) return { background: "var(--warn-bg)", color: "var(--warn)" };
+  return { background: "var(--danger-bg)", color: "var(--danger)" };
+}

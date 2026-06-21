@@ -1,0 +1,218 @@
+import type { CSSProperties } from "react";
+
+export const styles: Record<string, CSSProperties> = {
+  wrapper: {
+    display: "flex",
+    minHeight: "100vh",
+    background: "var(--bg)",
+  },
+
+  sidebar: {
+    display: "flex",
+    flexDirection: "column",
+    background: "var(--surface)",
+    borderRight: "1px solid var(--border)",
+    overflow: "hidden",
+    flexShrink: 0,
+    position: "sticky",
+    top: 0,
+    height: "100vh",
+  },
+  sidebarHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "16px 12px",
+    borderBottom: "1px solid var(--border)",
+    minHeight: 56,
+    boxSizing: "border-box",
+  },
+  brand: {
+    fontSize: 20,
+    fontWeight: 600,
+    whiteSpace: "nowrap",
+  },
+  toggleBtn: {
+    width: 32,
+    height: 32,
+    flexShrink: 0,
+    background: "var(--bg)",
+    border: "1px solid var(--border)",
+    borderRadius: 6,
+    cursor: "pointer",
+    fontSize: 16,
+    lineHeight: 1,
+    color: "var(--text-muted)",
+  },
+  nav: {
+    flex: 1,
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: 8,
+    overflowY: "auto",
+  },
+  navItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 12px",
+    borderRadius: 8,
+    textDecoration: "none",
+    color: "var(--text)",
+    fontSize: 14,
+    whiteSpace: "nowrap",
+  },
+  navItemActive: {
+    background: "var(--accent-soft)",
+    color: "var(--accent-text)",
+    fontWeight: 600,
+  },
+  navIcon: {
+    fontSize: 18,
+    width: 20,
+    textAlign: "center",
+    flexShrink: 0,
+  },
+  navLabel: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  resizer: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 6,
+    height: "100%",
+    cursor: "col-resize",
+    transition: "background 0.15s ease",
+    zIndex: 10,
+  },
+
+  sidebarFooter: {
+    borderTop: "1px solid var(--border)",
+    padding: 8,
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+  },
+  userBox: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "4px 8px",
+  },
+  userName: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: "var(--text)",
+  },
+  role: {
+    display: "inline-block",
+    alignSelf: "flex-start",
+    padding: "1px 8px",
+    background: "var(--accent-soft)",
+    color: "var(--accent-text)",
+    borderRadius: 4,
+    fontSize: 12,
+    fontWeight: 500,
+  },
+  logoutBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 12px",
+    background: "var(--surface)",
+    color: "var(--danger)",
+    border: "1px solid var(--danger-border)",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 14,
+    whiteSpace: "nowrap",
+  },
+
+  main: {
+    flex: 1,
+    padding: 32,
+    maxWidth: 1200,
+  },
+  sectionTitle: {
+    margin: "0 0 16px",
+    fontSize: 18,
+    fontWeight: 600,
+  },
+  muted: {
+    color: "var(--text-muted)",
+    fontSize: 14,
+  },
+  link: {
+    color: "var(--accent)",
+    textDecoration: "none",
+  },
+  primaryLink: {
+    display: "inline-block",
+    padding: "10px 16px",
+    background: "var(--accent)",
+    color: "var(--on-accent)",
+    borderRadius: 6,
+    textDecoration: "none",
+    fontSize: 14,
+    fontWeight: 500,
+  },
+
+  // ── Мобильная адаптация (≤640px) ──────────────────────────────
+  // Контейнер раскладываем в колонку: сверху — топбар, ниже — контент.
+  wrapperMobile: {
+    flexDirection: "column",
+  },
+  // Топбар с бургером (виден только на мобильных).
+  topbar: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    padding: "10px 14px",
+    background: "var(--surface)",
+    borderBottom: "1px solid var(--border)",
+    position: "sticky",
+    top: 0,
+    zIndex: 30,
+  },
+  hamburger: {
+    width: 40,
+    height: 40,
+    flexShrink: 0,
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    background: "var(--bg)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    cursor: "pointer",
+    fontSize: 18,
+    lineHeight: 1,
+    color: "var(--text)",
+  },
+  // Боковая панель как выезжающий drawer поверх контента.
+  sidebarMobile: {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    height: "100vh",
+    zIndex: 50,
+    boxShadow: "0 0 40px rgba(0,0,0,0.25)",
+    transition: "transform 0.25s ease",
+  },
+  // Затемнение фона под drawer.
+  backdrop: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.45)",
+    zIndex: 40,
+  },
+  // Контент на мобильных — на всю ширину с компактными отступами.
+  mainMobile: {
+    padding: 16,
+    maxWidth: "100%",
+  },
+};

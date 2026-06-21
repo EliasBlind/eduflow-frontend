@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   useClasses,
   useCreateClass,
@@ -8,6 +9,7 @@ import {
 } from "@/hooks/journal/useClasses";
 import { styles } from "./_shared.styles";
 import {
+  PageWrapper,
   PageHeader,
   Modal,
   ModalActions,
@@ -26,6 +28,7 @@ interface ClassRow {
 }
 
 export default function ClassesPage() {
+  const { t } = useTranslation();
   const params = useMemo(() => ({}), []);
   const list = useClasses(params);
 
@@ -58,14 +61,14 @@ export default function ClassesPage() {
   };
 
   const handleDelete = async (c: ClassRow) => {
-    if (!confirm(`Удалить класс «${c.className}»?`)) return;
+    if (!confirm(t("classes.deleteConfirm", { name: c.className }))) return;
     await deleteMut.mutate({ id: c.id });
     list.refetch();
   };
 
   return (
-    <div style={styles.wrapper}>
-      <PageHeader title="Классы" onCreate={() => { setEditing(null); setModalOpen(true); }} createLabel="Добавить класс" />
+    <PageWrapper>
+      <PageHeader title={t("classes.title")} onCreate={() => { setEditing(null); setModalOpen(true); }} createLabel={t("classes.create")} />
 
       {list.error && <ErrorBox message={list.error} />}
       {deleteMut.error && <ErrorBox message={deleteMut.error} />}
@@ -73,15 +76,15 @@ export default function ClassesPage() {
       {list.loading ? (
         <Loading />
       ) : classes.length === 0 ? (
-        <Empty message="Классов пока нет." />
+        <Empty message={t("classes.empty")} />
       ) : (
         <Table>
           <thead>
             <tr>
-              <th style={styles.th}>Название</th>
-              <th style={styles.th}>Год обучения</th>
-              <th style={styles.th}>Год выпуска</th>
-              <th style={{ ...styles.th, ...styles.thActions }}>Действия</th>
+              <th style={styles.th}>{t("classes.colName")}</th>
+              <th style={styles.th}>{t("classes.colYears")}</th>
+              <th style={styles.th}>{t("classes.colGradYear")}</th>
+              <th style={{ ...styles.th, ...styles.thActions }}>{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -96,10 +99,10 @@ export default function ClassesPage() {
                 <td style={styles.td}>{c.graduationYear}</td>
                 <td style={{ ...styles.td, ...styles.tdActions }}>
                   <button onClick={() => { setEditing(c); setModalOpen(true); }} style={styles.btnSecondary}>
-                    Изменить
+                    {t("common.edit")}
                   </button>
                   <button onClick={() => handleDelete(c)} style={styles.btnDanger}>
-                    Удалить
+                    {t("common.delete")}
                   </button>
                 </td>
               </tr>
@@ -117,7 +120,7 @@ export default function ClassesPage() {
           error={createMut.error ?? updateMut.error}
         />
       )}
-    </div>
+    </PageWrapper>
   );
 }
 
@@ -138,6 +141,7 @@ interface ClassFormModalProps {
 }
 
 function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFormModalProps) {
+  const { t } = useTranslation();
   const currentYear = new Date().getFullYear();
 
   const [className,      setClassName]      = useState(initial?.className ?? "");
@@ -146,9 +150,9 @@ function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFor
   const [formError, setFormError] = useState<string | null>(null);
 
   const submit = async () => {
-    if (className.trim().length < 1) return setFormError("Введите название класса");
-    if (yearOfStudy < 1 || yearOfStudy > 11) return setFormError("Год обучения должен быть от 1 до 11");
-    if (graduationYear < currentYear) return setFormError("Год выпуска не может быть в прошлом");
+    if (className.trim().length < 1) return setFormError(t("classes.errName"));
+    if (yearOfStudy < 1 || yearOfStudy > 11) return setFormError(t("classes.errYears"));
+    if (graduationYear < currentYear) return setFormError(t("classes.errGradYear"));
     setFormError(null);
 
     try {
@@ -157,8 +161,8 @@ function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFor
   };
 
   return (
-    <Modal title={initial ? "Изменить класс" : "Новый класс"} onClose={onClose}>
-      <Field label="Название (например, «5А»)">
+    <Modal title={initial ? t("classes.modalEdit") : t("classes.modalNew")} onClose={onClose}>
+      <Field label={t("classes.fieldName")}>
         <input
           value={className}
           onChange={(e) => setClassName(e.target.value)}
@@ -168,7 +172,7 @@ function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFor
         />
       </Field>
 
-      <Field label="Год обучения (1—11)">
+      <Field label={t("classes.fieldYears")}>
         <input
           type="number"
           min={1}
@@ -180,7 +184,7 @@ function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFor
         />
       </Field>
 
-      <Field label="Год выпуска">
+      <Field label={t("classes.fieldGradYear")}>
         <input
           type="number"
           min={currentYear}
@@ -194,9 +198,9 @@ function ClassFormModal({ initial, onClose, onSubmit, loading, error }: ClassFor
       {(formError ?? error) && <ErrorBox message={formError ?? error!} />}
 
       <ModalActions>
-        <button onClick={onClose} disabled={loading} style={styles.btnSecondary}>Отмена</button>
+        <button onClick={onClose} disabled={loading} style={styles.btnSecondary}>{t("common.cancel")}</button>
         <button onClick={submit} disabled={loading} style={styles.btnPrimary}>
-          {loading ? "Сохранение…" : "Сохранить"}
+          {loading ? t("common.saving") : t("common.save")}
         </button>
       </ModalActions>
     </Modal>

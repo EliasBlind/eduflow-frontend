@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   useSubjects,
   useCreateSubject,
@@ -7,6 +8,7 @@ import {
 } from "@/hooks/journal/useSubjects";
 import { styles } from "./_shared.styles";
 import {
+  PageWrapper,
   PageHeader,
   Modal,
   ModalActions,
@@ -23,6 +25,7 @@ interface SubjectRow {
 }
 
 export default function SubjectsPage() {
+  const { t } = useTranslation();
   const list = useSubjects();
   const createMut = useCreateSubject();
   const updateMut = useUpdateSubject();
@@ -47,14 +50,14 @@ export default function SubjectsPage() {
   };
 
   const handleDelete = async (s: SubjectRow) => {
-    if (!confirm(`Удалить предмет «${s.fullName}»?`)) return;
+    if (!confirm(t("subjects.deleteConfirm", { name: s.fullName }))) return;
     await deleteMut.mutate({ id: s.id });
     list.refetch();
   };
 
   return (
-    <div style={styles.wrapper}>
-      <PageHeader title="Предметы" onCreate={openCreate} createLabel="Добавить предмет" />
+    <PageWrapper>
+      <PageHeader title={t("subjects.title")} onCreate={openCreate} createLabel={t("subjects.create")} />
 
       {list.error && <ErrorBox message={list.error} />}
       {deleteMut.error && <ErrorBox message={deleteMut.error} />}
@@ -62,13 +65,13 @@ export default function SubjectsPage() {
       {list.loading ? (
         <Loading />
       ) : subjects.length === 0 ? (
-        <Empty message="Предметов пока нет." />
+        <Empty message={t("subjects.empty")} />
       ) : (
         <Table>
           <thead>
             <tr>
-              <th style={styles.th}>Название</th>
-              <th style={{ ...styles.th, ...styles.thActions }}>Действия</th>
+              <th style={styles.th}>{t("common.name")}</th>
+              <th style={{ ...styles.th, ...styles.thActions }}>{t("common.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,8 +79,8 @@ export default function SubjectsPage() {
               <tr key={s.id}>
                 <td style={styles.td}>{s.fullName}</td>
                 <td style={{ ...styles.td, ...styles.tdActions }}>
-                  <button onClick={() => openEdit(s)} style={styles.btnSecondary}>Изменить</button>
-                  <button onClick={() => handleDelete(s)} style={styles.btnDanger}>Удалить</button>
+                  <button onClick={() => openEdit(s)} style={styles.btnSecondary}>{t("common.edit")}</button>
+                  <button onClick={() => handleDelete(s)} style={styles.btnDanger}>{t("common.delete")}</button>
                 </td>
               </tr>
             ))}
@@ -87,7 +90,7 @@ export default function SubjectsPage() {
 
       {modalOpen && (
         <SimpleNameModal
-          title={editing ? "Изменить предмет" : "Новый предмет"}
+          title={editing ? t("subjects.modalEdit") : t("subjects.modalNew")}
           initialValue={editing?.fullName ?? ""}
           onClose={() => setModalOpen(false)}
           onSubmit={handleSubmit}
@@ -95,7 +98,7 @@ export default function SubjectsPage() {
           error={createMut.error ?? updateMut.error}
         />
       )}
-    </div>
+    </PageWrapper>
   );
 }
 
@@ -111,12 +114,13 @@ interface SimpleNameModalProps {
 }
 
 function SimpleNameModal({ title, initialValue, onClose, onSubmit, loading, error }: SimpleNameModalProps) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(initialValue);
   const [formError, setFormError] = useState<string | null>(null);
 
   const submit = async () => {
     if (value.trim().length < 2) {
-      setFormError("Название слишком короткое");
+      setFormError(t("subjects.errShort"));
       return;
     }
     setFormError(null);
@@ -129,7 +133,7 @@ function SimpleNameModal({ title, initialValue, onClose, onSubmit, loading, erro
 
   return (
     <Modal title={title} onClose={onClose}>
-      <Field label="Название">
+      <Field label={t("common.name")}>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -142,9 +146,9 @@ function SimpleNameModal({ title, initialValue, onClose, onSubmit, loading, erro
       {(formError ?? error) && <ErrorBox message={formError ?? error!} />}
 
       <ModalActions>
-        <button onClick={onClose} disabled={loading} style={styles.btnSecondary}>Отмена</button>
+        <button onClick={onClose} disabled={loading} style={styles.btnSecondary}>{t("common.cancel")}</button>
         <button onClick={submit} disabled={loading} style={styles.btnPrimary}>
-          {loading ? "Сохранение…" : "Сохранить"}
+          {loading ? t("common.saving") : t("common.save")}
         </button>
       </ModalActions>
     </Modal>

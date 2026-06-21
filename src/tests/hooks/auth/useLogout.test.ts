@@ -9,7 +9,7 @@ beforeEach(() => {
     refreshToken:    "ref",
     role:            "admin",
     isAuthenticated: true,
-    user:            { id: "1", login: "u", role: "admin", email: "u@example.com" },
+    user:            { id: "1", password: '77214330Elias;',login: "u", role: "admin", email: "u@example.com" },
   });
 });
 

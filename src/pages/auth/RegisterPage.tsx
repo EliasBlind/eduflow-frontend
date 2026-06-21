@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useRegister } from "@/hooks/auth/useRegister";
 import { useAuth } from "@/hooks/auth/useAuth";
+import { styles } from "./RegisterPage.styles";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const { register, loading, error } = useRegister();
@@ -23,17 +26,17 @@ export default function RegisterPage() {
   }, [isAuthenticated, navigate]);
 
   const validate = (): string | null => {
-    if (!email.trim()) return "Введите email";
-    if (!EMAIL_REGEX.test(email.trim())) return "Некорректный формат email";
-    if (!loginField.trim()) return "Введите логин";
-    if (loginField.trim().length < 3) return "Логин должен быть не менее 3 символов";
-    if (!password) return "Введите пароль";
-    if (password.length < 6) return "Пароль должен быть не менее 6 символов";
-    if (password !== confirmPassword) return "Пароли не совпадают";
+    if (!email.trim()) return t("auth.errEmailRequired");
+    if (!EMAIL_REGEX.test(email.trim())) return t("auth.errEmailInvalid");
+    if (!loginField.trim()) return t("auth.errLoginRequired");
+    if (loginField.trim().length < 3) return t("auth.errLoginMin");
+    if (!password) return t("auth.errPasswordRequired");
+    if (password.length < 6) return t("auth.errPasswordMin6");
+    if (password !== confirmPassword) return t("auth.errPasswordMismatch");
     return null;
   };
 
-	const handleSubmit = async (e: React.SubmitEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setFormError(null);
 
@@ -68,11 +71,11 @@ export default function RegisterPage() {
   return (
     <div style={styles.wrapper}>
       <div style={styles.card}>
-        <h1 style={styles.title}>Регистрация</h1>
+        <h1 style={styles.title}>{t("auth.registerTitle")}</h1>
 
         <form onSubmit={handleSubmit} noValidate>
           <div style={styles.field}>
-            <label htmlFor="email" style={styles.label}>Email</label>
+            <label htmlFor="email" style={styles.label}>{t("auth.email")}</label>
             <input
               id="email"
               type="email"
@@ -85,7 +88,7 @@ export default function RegisterPage() {
           </div>
 
           <div style={styles.field}>
-            <label htmlFor="login" style={styles.label}>Логин</label>
+            <label htmlFor="login" style={styles.label}>{t("auth.login")}</label>
             <input
               id="login"
               type="text"
@@ -98,7 +101,7 @@ export default function RegisterPage() {
           </div>
 
           <div style={styles.field}>
-            <label htmlFor="password" style={styles.label}>Пароль</label>
+            <label htmlFor="password" style={styles.label}>{t("auth.password")}</label>
             <input
               id="password"
               type="password"
@@ -111,7 +114,7 @@ export default function RegisterPage() {
           </div>
 
           <div style={styles.field}>
-            <label htmlFor="confirmPassword" style={styles.label}>Повторите пароль</label>
+            <label htmlFor="confirmPassword" style={styles.label}>{t("auth.confirmPassword")}</label>
             <input
               id="confirmPassword"
               type="password"
@@ -134,87 +137,17 @@ export default function RegisterPage() {
             disabled={loading}
             style={{ ...styles.button, ...(loading ? styles.buttonDisabled : {}) }}
           >
-            {loading ? "Создание..." : "Создать аккаунт"}
+            {loading ? t("auth.creating") : t("auth.registerButton")}
           </button>
         </form>
 
         <p style={styles.footer}>
-          Уже есть аккаунт?{" "}
+          {t("auth.haveAccount")}{" "}
           <Link to="/auth/login" style={styles.link}>
-            Войти
+            {t("auth.loginButton")}
           </Link>
         </p>
       </div>
     </div>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  wrapper: {
-    minHeight: "100vh",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    background: "#f5f5f7",
-    padding: 16,
-  },
-  card: {
-    width: "100%",
-    maxWidth: 380,
-    background: "#fff",
-    padding: 32,
-    borderRadius: 8,
-    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-  },
-  title: {
-    margin: "0 0 24px",
-    fontSize: 24,
-    fontWeight: 600,
-    textAlign: "center",
-  },
-  field: { marginBottom: 16 },
-  label: {
-    display: "block",
-    marginBottom: 6,
-    fontSize: 14,
-    color: "#333",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 14,
-    border: "1px solid #d0d0d5",
-    borderRadius: 6,
-    outline: "none",
-    boxSizing: "border-box",
-  },
-  button: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    fontWeight: 500,
-    color: "#fff",
-    background: "#2563eb",
-    border: "none",
-    borderRadius: 6,
-    cursor: "pointer",
-    marginTop: 8,
-  },
-  buttonDisabled: { background: "#93b4f0", cursor: "not-allowed" },
-  error: {
-    padding: "8px 12px",
-    marginBottom: 12,
-    background: "#fee",
-    color: "#b00020",
-    border: "1px solid #fbb",
-    borderRadius: 6,
-    fontSize: 13,
-  },
-  footer: {
-    marginTop: 20,
-    fontSize: 14,
-    textAlign: "center",
-    color: "#555",
-  },
-  link: { color: "#2563eb", textDecoration: "none" },
-};
