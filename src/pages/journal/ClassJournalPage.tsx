@@ -792,7 +792,7 @@ function GradeModal({
 
   useEffect(() => {
     if (existing) {
-      setMode(existing.value == null && existing.statusCodeId ? "status" : "grade");
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (existing.value != null) setGrade(existing.value);
       if (existing.statusCodeId) setStatusCodeId(existing.statusCodeId);
       setNote(existing.comment ?? "");

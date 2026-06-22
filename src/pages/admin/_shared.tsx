@@ -4,7 +4,7 @@ import { styles } from "./_shared.styles";
 
 const MOBILE_QUERY = "(max-width: 640px)";
 
-export function useIsMobile(): boolean {
+function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState<boolean>(() =>
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia(MOBILE_QUERY).matches
@@ -15,7 +15,6 @@ export function useIsMobile(): boolean {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia(MOBILE_QUERY);
     const onChange = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    setIsMobile(mq.matches);
     mq.addEventListener("change", onChange);
     return () => mq.removeEventListener("change", onChange);
   }, []);

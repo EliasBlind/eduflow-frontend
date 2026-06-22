@@ -43,6 +43,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+//! TODO: нужно убрать экспорт хука разбив на 2 файла или забить
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme(): ThemeContextValue {
   const ctx = useContext(ThemeContext);
   if (!ctx) throw new Error("useTheme должен использоваться внутри <ThemeProvider>");

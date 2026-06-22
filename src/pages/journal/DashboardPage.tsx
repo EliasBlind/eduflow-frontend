@@ -170,10 +170,6 @@ export default function DashboardPage() {
   const expanded = isMobile ? true : open;
 
   useEffect(() => {
-    setMobileNavOpen(false);
-  }, [pathname]);
-
-  useEffect(() => {
     if (!isMobile || !mobileNavOpen) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";

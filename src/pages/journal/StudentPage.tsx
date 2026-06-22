@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Navigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import * as XLSX from "xlsx";
@@ -60,12 +60,6 @@ function StudentView({ studentId }: { studentId: string }) {
   }, [statusCodes]);
 
   const [hwSubjectId, setHwSubjectId] = useState<string>("");
-
-  useEffect(() => {
-    if (!hwSubjectId && subjects.length) {
-      setHwSubjectId(subjects[0].id);
-    }
-  }, [subjects, hwSubjectId]);
 
   const hwParams = useMemo(
     () => ({
