@@ -14,10 +14,6 @@ interface UseRegisterReturn {
   error:    string | null;
 }
 
-/**
- * Хук регистрации нового пользователя.
- * После успешной регистрации пользователю нужно верифицировать email (useVerifyEmail).
- */
 export function useRegister(): UseRegisterReturn {
   const [loading, setLoading] = useState(false);
   const [error,   setError  ] = useState<string | null>(null);

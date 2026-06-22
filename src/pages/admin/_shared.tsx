@@ -1,11 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { styles } from "./_shared.styles";
 
-// ── Адаптив: определяем «мобильный» брейкпоинт ────────────────
 
 const MOBILE_QUERY = "(max-width: 640px)";
 
-/** true, когда ширина вьюпорта ≤ 640px. Реагирует на ресайз/поворот. */
 export function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState<boolean>(() =>
     typeof window !== "undefined" && typeof window.matchMedia === "function"
@@ -25,7 +23,6 @@ export function useIsMobile(): boolean {
   return isMobile;
 }
 
-/** Контейнер страницы с адаптивными отступами. */
 export function PageWrapper({ children }: { children: ReactNode }) {
   const isMobile = useIsMobile();
   return (
@@ -34,8 +31,6 @@ export function PageWrapper({ children }: { children: ReactNode }) {
     </div>
   );
 }
-
-// ── Shared layout components ──────────────────────────────────
 
 interface PageHeaderProps {
   title:           string;
@@ -81,8 +76,6 @@ export function Empty({ message }: { message: string }) {
 export function ErrorBox({ message }: { message: string }) {
   return <div role="alert" style={styles.error}>{message}</div>;
 }
-
-// ── Modal ─────────────────────────────────────────────────────
 
 interface ModalProps {
   title:    string;

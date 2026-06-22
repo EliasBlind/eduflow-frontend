@@ -145,7 +145,7 @@ export const styles: Record<string, CSSProperties> = {
     boxSizing: "border-box",
   },
 
-  // Домашнее задание
+  // ДЗ
   hwList: { display: "flex", flexDirection: "column", gap: 12 },
   hwCard: {
     padding: 16,

@@ -1,11 +1,5 @@
 import { useEffect, useState } from "react";
 
-/**
- * Возвращает true, когда ширина вьюпорта ≤ breakpoint (по умолчанию 640px).
- * Реагирует на ресайз окна и поворот устройства.
- *
- * Положите файл в src/hooks/ (импорт `@/hooks/useIsMobile`).
- */
 export function useIsMobile(breakpoint = 640): boolean {
   const query = `(max-width: ${breakpoint}px)`;
 

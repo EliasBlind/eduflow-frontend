@@ -16,19 +16,12 @@ import {
   FaBars,
 } from "react-icons/fa";
 
-// -----------------------------------------------------------------------------
-// Constants
-// -----------------------------------------------------------------------------
 const SIDEBAR_WIDTH = 240;
 const COLLAPSED_WIDTH = 64;
 const MIN_WIDTH = 180;
 const MAX_WIDTH = 480;
-// Ширина выезжающей панели (drawer) на мобильных.
 const MOBILE_DRAWER_WIDTH = "min(82vw, 280px)";
 
-// -----------------------------------------------------------------------------
-// Custom hook: управление ресайзом боковой панели
-// -----------------------------------------------------------------------------
 const useSidebarResize = (initialWidth: number) => {
   const [width, setWidth] = useState(initialWidth);
   const [isResizing, setIsResizing] = useState(false);
@@ -68,14 +61,10 @@ const useSidebarResize = (initialWidth: number) => {
   return { width, isResizing, startResize, resetWidth };
 };
 
-// -----------------------------------------------------------------------------
-// Компоненты
-// -----------------------------------------------------------------------------
-
 interface NavItemProps {
   to: string;
   label: string;
-  icon: React.ReactNode; // теперь это React-узел (компонент иконки)
+  icon: React.ReactNode;
   open: boolean;
   active: boolean;
   onClick?: () => void;
@@ -108,12 +97,6 @@ const Welcome = ({ title, hint }: { title: string; hint: string }) => (
   </section>
 );
 
-// -----------------------------------------------------------------------------
-// Контент правой части для самого маршрута /dashboard (index-маршрут).
-// Раньше этот блок был прямо внутри <main>. Теперь он вынесен в отдельный
-// компонент, который рендерится в <Outlet />, когда никакая вложенная
-// страница не выбрана.
-// -----------------------------------------------------------------------------
 export function DashboardHome() {
   const { t } = useTranslation();
   const { user, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
@@ -159,10 +142,6 @@ export function DashboardHome() {
   );
 }
 
-// -----------------------------------------------------------------------------
-// Основной компонент — теперь это LAYOUT.
-// Боковая панель остаётся на месте, а страницы рендерятся в <Outlet />.
-// -----------------------------------------------------------------------------
 export default function DashboardPage() {
   const { t } = useTranslation();
   const { user, role, isAdmin, isTeacher, isStudent, isUnauthorized } = useAuth();
@@ -171,8 +150,6 @@ export default function DashboardPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Делаем редирект только если пользователь находится на корневом /dashboard
-    // чтобы не зацикливать переходы, когда он ходит по внутренним вкладкам
     if (pathname === "/dashboard" || pathname === "/") {
       if (isTeacher) {
         navigate("/classes/journal", { replace: true });
@@ -186,20 +163,16 @@ export default function DashboardPage() {
   const { width, isResizing, startResize, resetWidth } =
     useSidebarResize(SIDEBAR_WIDTH);
 
-  // На мобильных боковая панель превращается в выезжающий drawer.
   const isMobile = useIsMobile();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const closeMobileNav = useCallback(() => setMobileNavOpen(false), []);
 
-  // На мобильных drawer всегда показывает подписи (как в развёрнутом виде).
   const expanded = isMobile ? true : open;
 
-  // Закрываем мобильное меню при переходе на другой маршрут.
   useEffect(() => {
     setMobileNavOpen(false);
   }, [pathname]);
 
-  // Пока drawer открыт — блокируем прокрутку фона.
   useEffect(() => {
     if (!isMobile || !mobileNavOpen) return;
     const prev = document.body.style.overflow;
@@ -209,9 +182,6 @@ export default function DashboardPage() {
     };
   }, [isMobile, mobileNavOpen]);
 
-  // Генерация пунктов меню – вычисляется каждый рендер (недорого).
-  // Подписи берём из тех же ключей, что и заголовки соответствующих страниц.
-  // Теперь используем React-иконки вместо эмодзи.
   const navItems: Omit<NavItemProps, "open" | "active">[] = [];
 
   if (isAdmin) {
@@ -232,7 +202,7 @@ export default function DashboardPage() {
 
   return (
     <div style={isMobile ? { ...styles.wrapper, ...styles.wrapperMobile } : styles.wrapper}>
-      {/* Верхняя панель с бургером — только на мобильных */}
+      {/* Верхняя панель */}
       {isMobile && (
         <header style={styles.topbar}>
           <button
@@ -247,12 +217,11 @@ export default function DashboardPage() {
         </header>
       )}
 
-      {/* Затемнение под выехавшим drawer */}
       {isMobile && mobileNavOpen && (
         <div style={styles.backdrop} onClick={closeMobileNav} aria-hidden="true" />
       )}
 
-      {/* Боковая панель (на мобильных — выезжающий drawer) */}
+      {/* Боковая панель (для мобилок будет выезжать) */}
       <aside
         style={
           isMobile
@@ -271,7 +240,7 @@ export default function DashboardPage() {
         aria-label={t("dashboard.sidebarAria")}
         aria-hidden={isMobile && !mobileNavOpen}
       >
-        {/* Шапка панели */}
+        {/* Шапка */}
         <div style={styles.sidebarHeader}>
           {expanded && <span style={styles.brand}>EduFlow</span>}
           <button
@@ -312,7 +281,6 @@ export default function DashboardPage() {
           )}
         </nav>
 
-        {/* Нижняя часть панели: пользователь и выход */}
         <div style={styles.sidebarFooter}>
           {expanded && (
             <div style={styles.userBox}>
@@ -323,7 +291,7 @@ export default function DashboardPage() {
             </div>
           )}
 
-          {/* Переключатель языка (с флагами стран) */}
+          {/* Переключатель языка*/}
           <LanguageSwitcher
             compact={!expanded}
             style={!expanded ? { width: "100%" } : undefined}
@@ -347,7 +315,7 @@ export default function DashboardPage() {
           </button>
         </div>
 
-        {/* Ресайзер (разделитель) — только на десктопе */}
+        {/* Ресайзер */}
         {!isMobile && open && (
           <div
             onMouseDown={startResize}
@@ -363,7 +331,6 @@ export default function DashboardPage() {
         )}
       </aside>
 
-      {/* Основной контент — сюда подставляются вложенные страницы */}
       <main style={isMobile ? { ...styles.main, ...styles.mainMobile } : styles.main}>
         <Outlet />
       </main>

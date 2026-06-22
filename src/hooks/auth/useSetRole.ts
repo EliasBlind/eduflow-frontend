@@ -8,9 +8,6 @@ interface UseSetRoleReturn {
   error: string | null;
 }
 
-/**
- * Смена роли пользователя (только админ, RPC SetRole).
- */
 export function useSetRole(): UseSetRoleReturn {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

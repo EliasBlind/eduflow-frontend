@@ -8,10 +8,6 @@ interface UseVerifyEmailReturn {
   error:   string | null;
 }
 
-/**
- * Хук для подтверждения email по коду.
- * После успешной верификации сохраняет токены.
- */
 export function useVerifyEmail(): UseVerifyEmailReturn {
   const [loading, setLoading] = useState(false);
   const [error,   setError  ] = useState<string | null>(null);

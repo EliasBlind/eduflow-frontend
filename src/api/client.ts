@@ -1,12 +1,3 @@
-/**
- * Единая точка входа в API.
- * Переключение транспорта: VITE_TRANSPORT=grpc (приложение) | rest (браузер, по умолчанию)
- *
- * Использование:
- *   import { auth, students } from "@/api/client";
- *   const tokens = await auth.login({ login, password, appId: 1 });
- */
-
 import * as authGrpc      from "./transport/grpc/sso/auth.grpc";
 import * as studentsGrpc   from "./transport/grpc/journal/students.grpc";
 import * as teachersGrpc   from "./transport/grpc/journal/teachers.grpc";

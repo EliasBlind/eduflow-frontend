@@ -18,15 +18,12 @@ export default function VerifyEmailPage() {
   const { isAuthenticated } = useAuth();
   const { verify, loading, error } = useVerifyEmail();
 
-  // Email может прийти со страницы регистрации через router state
   const initialEmail = (location.state as LocationState | null)?.email ?? "";
 
   const [email, setEmail]         = useState(initialEmail);
   const [code, setCode]           = useState("");
   const [formError, setFormError] = useState<string | null>(null);
 
-  // После успешной верификации useVerifyEmail сохранит токены
-  // → isAuthenticated станет true → редирект
   useEffect(() => {
     if (isAuthenticated) {
       navigate("/", { replace: true });
@@ -53,9 +50,8 @@ export default function VerifyEmailPage() {
 
     try {
       await verify(code.trim(), email.trim());
-      // Редирект отработает в useEffect
     } catch {
-      // Ошибка уже в стейте хука
+      // Ошибка в стейте
     }
   };
 

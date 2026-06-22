@@ -1,25 +1,20 @@
 import { GradeCell } from "./GradeCell";
 
 export interface JournalDate {
-  /** ISO-строка или метка даты */
   key:    string;
-  /** Отображаемая метка, напр. "1.09" */
   label:  string;
 }
 
 export interface JournalStudent {
   id:     string | number;
   name:   string;
-  /** Оценки по ключам дат */
   grades: Record<string, number | string | null>;
-  /** Средний балл, если считается снаружи */
   avg?:   number | null;
 }
 
 interface JournalTableProps {
   dates:      JournalDate[];
   students:   JournalStudent[];
-  /** Вызывается при клике на ячейку оценки */
   onCellClick?: (studentId: string | number, dateKey: string) => void;
 }
 
@@ -35,7 +30,6 @@ export function JournalTable({ dates, students, onCellClick }: JournalTableProps
     <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-700">
       <table className="w-full border-collapse text-sm" style={{ tableLayout: "fixed" }}>
         <colgroup>
-          {/* Колонка с именем */}
           <col style={{ width: "200px" }} />
           {dates.map((d) => (
             <col key={d.key} style={{ width: "52px" }} />

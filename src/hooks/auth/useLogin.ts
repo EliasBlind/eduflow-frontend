@@ -14,10 +14,6 @@ interface UseLoginReturn {
   error:    string | null;
 }
 
-/**
- * Хук для логина.
- * Сохраняет токены в стор после успешного ответа.
- */
 export function useLogin(): UseLoginReturn {
   const [loading, setLoading] = useState(false);
   const [error,   setError  ] = useState<string | null>(null);

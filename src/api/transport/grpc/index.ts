@@ -1,7 +1,7 @@
-// SSO
+// sso
 export * as authGrpc from "./sso/auth.grpc";
 
-// Journal
+// journal
 export * as studentsGrpc from "./journal/students.grpc";
 export * as teachersGrpc from "./journal/teachers.grpc";
 export * as classesGrpc from "./journal/classes.grpc";

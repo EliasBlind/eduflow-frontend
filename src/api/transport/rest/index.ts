@@ -1,7 +1,7 @@
-// SSO
+// sso
 export * as authRest from "./sso/auth.rest";
 
-// Journal
+// journal
 export * as studentsRest from "./journal/students.rest";
 export * as teachersRest from "./journal/teachers.rest";
 export * as classesRest from "./journal/classes.rest";

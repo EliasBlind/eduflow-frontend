@@ -26,7 +26,6 @@ export function Spinner({ size = "md", label = "Загрузка..." }: SpinnerP
   );
 }
 
-/** Центрированный Spinner на всю высоту блока */
 export function SpinnerFull({ label }: { label?: string }) {
   return (
     <div className="flex flex-1 items-center justify-center py-16">

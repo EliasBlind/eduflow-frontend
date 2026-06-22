@@ -1,34 +1,24 @@
-/* ============================================================================
- * Тема приложения: оранжевый акцент + нейтральный чёрно-белый, без синего.
- * Светлая/тёмная переключаются через атрибут data-theme на <html>.
- * Все страницы читают цвета только из этих переменных (var(--...)).
- * ==========================================================================*/
-
 :root {
   color-scheme: light;
 
-  /* Поверхности и фон */
   --bg:            #f5f5f7;
   --surface:       #ffffff;
-  --surface-2:     #f7f7f8;   /* шапки таблиц, hover-строки, второстепенные блоки */
+  --surface-2:     #f7f7f8;
   --border:        #e5e5ea;
   --border-soft:   #f0f0f0;
 
-  /* Текст */
   --text:          #1a1a1a;
   --text-muted:    #6b7280;
-  --on-accent:     #ffffff;   /* текст/иконки поверх оранжевого */
+  --on-accent:     #ffffff;
 
-  /* Оранжевый акцент */
   --accent:        #f97316;
-  --accent-strong: #ea580c;   /* hover / нажатие */
-  --accent-soft:   #fff7ed;   /* мягкая оранжевая подложка */
+  --accent-strong: #ea580c;
+  --accent-soft:   #fff7ed;
   --accent-border: #fed7aa;
-  --accent-text:   #c2410c;   /* оранжевый текст на светлой подложке */
-  --accent-disabled:#fcd9b6;  /* выцветший оранжевый для disabled-кнопок */
+  --accent-text:   #c2410c;
+  --accent-disabled:#fcd9b6;
   --ring:          rgba(249, 115, 22, 0.35);
 
-  /* Статусы (не синие — разрешены) */
   --danger:        #dc2626;
   --danger-bg:     #fef2f2;
   --danger-border: #fecaca;
@@ -52,7 +42,7 @@
   --on-accent:     #ffffff;
 
   --accent:        #f97316;
-  --accent-strong: #fb923c;   /* на тёмном hover делаем светлее */
+  --accent-strong: #fb923c;
   --accent-soft:   #2a1a0f;
   --accent-border: #66401d;
   --accent-text:   #fdba74;
@@ -68,7 +58,6 @@
   --warn-bg:       #2a1d08;
 }
 
-/* Базовая заливка страницы и плавный переход между темами */
 html,
 body {
   margin: 0;
@@ -79,13 +68,11 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-/* Видимый фокус с клавиатуры (оранжевый), единообразно по всему приложению */
 :where(button, a, input, select, textarea):focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
-/* Спиннер, используемый инлайн через style (animation: spin ...) */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }

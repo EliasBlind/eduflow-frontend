@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Button } from "./Button";
+import { Button } from "../../components/ui/Button";
 import type { ReactNode } from "react";
 
 interface ModalProps {
@@ -8,12 +8,10 @@ interface ModalProps {
   title:      string;
   children:   ReactNode;
   footer?:    ReactNode;
-  /** Ширина модала, по умолчанию max-w-md */
   width?:     string;
 }
 
 export function Modal({ open, onClose, title, children, footer, width = "max-w-md" }: ModalProps) {
-  // Закрытие по Escape
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };

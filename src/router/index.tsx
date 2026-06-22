@@ -2,12 +2,10 @@ import { lazy, Suspense } from "react";
 import { createBrowserRouter, RouterProvider, Navigate, Outlet, useParams } from "react-router-dom";
 import { useAuthStore } from "@/storage/auth.store";
 
-// ── Страницы (ленивая загрузка) ───────────────────────────────
 const LoginPage        = lazy(() => import("@/pages/auth/LoginPage"));
 const RegisterPage     = lazy(() => import("@/pages/auth/RegisterPage"));
 const VerifyEmailPage  = lazy(() => import("@/pages/auth/VerifyEmailPage"));
 
-// DashboardPage — LAYOUT (default), DashboardHome — named-экспорт того же файла.
 const DashboardPage    = lazy(() => import("@/pages/journal/DashboardPage"));
 const DashboardHome    = lazy(() =>
   import("@/pages/journal/DashboardPage").then((m) => ({ default: m.DashboardHome }))
@@ -26,19 +24,11 @@ const NotFoundPage     = lazy(() => import("@/pages/NotFoundPage"));
 import { Role } from "@/domain/person";
 import { AuthStatus } from "@/domain/authStatus";
 
-// ── Заглушка лоадера — замени на свой ─────────────────────────
+// Заглушка
 function AuthPending() {
   return <div className="auth-pending">Загрузка…</div>;
 }
 
-
-// ── Guards ────────────────────────────────────────────────────
-
-/**
- * Пускает только аутентифицированных.
- * Пока идёт рехидрация/рефреш (status === AuthStatus.Pending) — показывает лоадер,
- * НЕ редиректит, иначе разлогинит во время обновления токена.
- */
 function AuthGuard() {
   const status = useAuthStore((s) => s.status);
 
@@ -47,9 +37,6 @@ function AuthGuard() {
   return <Outlet />;
 }
 
-/**
- * Перенаправляет уже авторизованных со страниц auth обратно в приложение.
- */
 function GuestGuard() {
   const status = useAuthStore((s) => s.status);
 
@@ -58,9 +45,6 @@ function GuestGuard() {
   return <Outlet />;
 }
 
-/**
- * Пускает администраторов и учителей. Остальных — на /dashboard.
- */
 function TeacherGuard() {
   const status = useAuthStore((s) => s.status);
   const role   = useAuthStore((s) => s.role);
@@ -79,13 +63,6 @@ function TeacherGuard() {
     : <Navigate to="/dashboard" replace />;
 }
 
-/**
- * Доступ к профилю студента /students/:studentId.
- * Учитель и админ — на любого студента; ученик — только на свой профиль.
- *
- * ВАЖНО: гард читает useParams(), поэтому должен рендериться ВНУТРИ ветки
- * с параметром :studentId — иначе studentId будет undefined.
- */
 function StudentAccessGuard() {
   const status = useAuthStore((s) => s.status);
   const role   = useAuthStore((s) => s.role);
@@ -96,24 +73,19 @@ function StudentAccessGuard() {
 
   if (status === AuthStatus.Pending) return <AuthPending />;
   if (status === AuthStatus.Authenticated && role === Role.Unauthorized) {
-    return <AuthPending />; // роль ещё не подтянулась
+    return <AuthPending />; // роль не подтянулась
   }
   if (status === AuthStatus.Unauthenticated) {
     return <Navigate to="/auth/login" replace />;
   }
 
-  // учитель и админ — на любого студента
   if (role === Role.Teacher || role === Role.Admin) return <Outlet />;
 
-  // ученик — только на свою страницу
   if (role === Role.Student && studentId === myId) return <Outlet />;
 
   return <Navigate to="/dashboard" replace />;
 }
 
-/**
- * Пускает только администраторов. Остальных — на /dashboard.
- */
 function AdminGuard() {
   const status = useAuthStore((s) => s.status);
   const role   = useAuthStore((s) => s.role);
@@ -128,7 +100,6 @@ function AdminGuard() {
 }
 
 
-// ── Router ────────────────────────────────────────────────────
 const router = createBrowserRouter([
   {
     element: <GuestGuard />,
@@ -144,12 +115,10 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <Navigate to="/dashboard" replace /> },
 
-      // ── LAYOUT с боковой панелью ──────────────────────────────
       {
         element: <DashboardPage />,
         children: [
           { path: "/dashboard", element: <DashboardHome /> },
-          // Админские разделы (требуют панель)
           {
             element: <AdminGuard />,
             children: [
@@ -163,15 +132,12 @@ const router = createBrowserRouter([
         ],
       },
 
-      // ── Маршруты БЕЗ боковой панели ──────────────────────────────
-      // Журнал класса – только учитель/админ
       {
         element: <TeacherGuard />,
         children: [
           { path: "/classes/journal", element: <ClassJournalPage /> },
         ],
       },
-      // Профиль студента – учитель/админ на любого, ученик на свой
       {
         element: <StudentAccessGuard />,
         children: [

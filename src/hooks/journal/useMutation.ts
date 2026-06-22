@@ -7,14 +7,6 @@ interface UseMutationReturn<TData, TParams> {
   reset:   () => void;
 }
 
-/**
- * Базовый хук для мутаций (create / update / delete).
- * @param mutationFn  Функция, выполняющая запрос
- *
- * @example
- * const { mutate } = useMutation(students.createStudent);
- * await mutate({ name: "Иван" });
- */
 export function useMutation<TData, TParams>(
   mutationFn: (params: TParams) => Promise<TData>,
 ): UseMutationReturn<TData, TParams> {

@@ -54,7 +54,7 @@ const initial: AuthState = {
   user:            null,
   role:            Role.Unauthorized,
   isAuthenticated: false,
-  status:          AuthStatus.Pending, // до рехидрации статус неизвестен
+  status:          AuthStatus.Pending,
 };
 
 function isExpired(exp: number | null): boolean {
@@ -64,7 +64,6 @@ function isExpired(exp: number | null): boolean {
   return Date.now() >= expireTimeMs;
 }
 
-// один общий промис на все параллельные запросы — без дублей рефреша
 let refreshPromise: Promise<boolean> | null = null;
 
 export const useAuthStore = create<AuthState & AuthActions>()(
@@ -76,7 +75,6 @@ export const useAuthStore = create<AuthState & AuthActions>()(
         const decoded = decodeJWT(pair.accessToken);
         const id = decoded?.Id ?? get().id;
 
-        // в setTokens, сразу после decodeJWT
         console.log("[setTokens] decoded.Role=%o typeof=%s", decoded?.Role, typeof decoded?.Role);
         set((state) => {
           const role = decoded?.Role || state.role || Role.Unauthorized;
@@ -176,7 +174,6 @@ function bootstrapAuth(): void {
   const state = useAuthStore.getState();
 
   if (!isExpired(state.exp)) {
-    // восстановим роль из access-токена, а не только флаги
     const decoded = state.accessToken ? decodeJWT(state.accessToken) : null;
     useAuthStore.setState({
       isAuthenticated: true,

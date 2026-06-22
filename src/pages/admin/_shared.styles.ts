@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 
 export const styles: Record<string, CSSProperties> = {
   wrapper: { padding: 32, maxWidth: 1200, margin: "0 auto" },
-  // Мобильный вариант контейнера страницы — меньше боковых отступов.
   wrapperMobile: { padding: "20px 16px 40px" },
   pageHeader: {
     display: "flex",
@@ -11,7 +10,6 @@ export const styles: Record<string, CSSProperties> = {
     marginBottom: 24,
     gap: 16,
   },
-  // На мобильных шапка складывается в колонку, кнопка — на всю ширину.
   pageHeaderMobile: {
     flexDirection: "column",
     alignItems: "stretch",
@@ -30,7 +28,6 @@ export const styles: Record<string, CSSProperties> = {
   },
   link: { color: "var(--accent)", textDecoration: "none" },
 
-  // Toolbar (фильтры)
   toolbar: {
     display: "flex",
     gap: 16,
@@ -43,13 +40,10 @@ export const styles: Record<string, CSSProperties> = {
     border: "1px solid var(--border)",
   },
 
-  // Table
   tableWrap: {
     background: "var(--surface)",
     border: "1px solid var(--border)",
     borderRadius: 12,
-    // На узких экранах таблица прокручивается по горизонтали,
-    // а не обрезается (раньше было overflow: hidden).
     overflowX: "auto",
     WebkitOverflowScrolling: "touch",
   },
@@ -70,7 +64,7 @@ export const styles: Record<string, CSSProperties> = {
   td: { padding: "10px 14px", borderBottom: "1px solid var(--border-soft)", color: "var(--text)" },
   tdActions: { textAlign: "right", whiteSpace: "nowrap" },
 
-  // Buttons
+  // Кнопки
   btnPrimary: {
     padding: "10px 18px",
     fontSize: 14,
@@ -103,7 +97,6 @@ export const styles: Record<string, CSSProperties> = {
     cursor: "pointer",
   },
 
-  // Empty / loading / error
   loading: { padding: 40, textAlign: "center", color: "var(--text-muted)" },
   empty: {
     padding: 40,
@@ -123,7 +116,7 @@ export const styles: Record<string, CSSProperties> = {
     fontSize: 13,
   },
 
-  // Modal
+  // модалка
   backdrop: {
     position: "fixed",
     inset: 0,
@@ -172,7 +165,6 @@ export const styles: Record<string, CSSProperties> = {
     marginTop: 20,
   },
 
-  // Fields
   field: { display: "block", marginBottom: 14 },
   fieldLabel: {
     display: "block",

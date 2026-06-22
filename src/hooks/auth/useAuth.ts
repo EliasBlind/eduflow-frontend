@@ -1,10 +1,6 @@
 import { Role } from '@/domain/person';
 import { useAuthStore } from "@/storage/auth.store";
 
-/**
- * Основной хук аутентификации.
- * Возвращает состояние и флаги ролей.
- */
 export function useAuth() {
   const id              = useAuthStore((s) => s.id);
   const accessToken     = useAuthStore((s) => s.accessToken);

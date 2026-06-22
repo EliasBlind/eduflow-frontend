@@ -13,11 +13,6 @@ import { ThemeToggle } from "@/theme";
 import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 import { styles } from "./StudentPage.styles";
 
-/**
- * Профиль студента — общая инфа, оценки и статус-коды за учебный год
- * в виде таблицы (с комментариями), выгрузка в Excel и просмотр
- * домашнего задания по предмету.
- */
 export default function StudentPage() {
   const { studentId } = useParams<{ studentId: string }>();
 
@@ -52,7 +47,6 @@ function StudentView({ studentId }: { studentId: string }) {
   const statusCodes = useMemo(() => statusState.data?.statusCodes ?? [], [statusState.data]);
   const grades      = gradesState.data?.grades;
 
-  // ── Карты для быстрого резолва id → название ──────────────────
   const subjectNameById = useMemo(() => {
     const m = new Map<string, string>();
     for (const s of subjects) m.set(s.id, s.fullName);
@@ -65,7 +59,6 @@ function StudentView({ studentId }: { studentId: string }) {
     return m;
   }, [statusCodes]);
 
-  // ── Домашнее задание (по выбранному предмету) ─────────────────
   const [hwSubjectId, setHwSubjectId] = useState<string>("");
 
   useEffect(() => {
@@ -127,7 +120,6 @@ function StudentView({ studentId }: { studentId: string }) {
   const errorMessage =
     studentState.error || subjectsState.error || gradesState.error;
 
-  // ── Выгрузка в Excel ──────────────────────────────────────────
   function handleExportExcel() {
     if (!student) return;
 
@@ -162,7 +154,6 @@ function StudentView({ studentId }: { studentId: string }) {
     XLSX.writeFile(wb, `${t("journal.sheetGrades")}_${safeName || t("student.studentFallback")}.xlsx`);
   }
 
-  // ── Рендер ────────────────────────────────────────────────────
   if (isLoading) {
     return <div style={styles.loading}>{t("common.loading")}</div>;
   }
@@ -230,7 +221,7 @@ function StudentView({ studentId }: { studentId: string }) {
         </div>
       </header>
 
-      {/* ── Средний балл по предметам ── */}
+      {/*Средний балл */}
       <section style={styles.section}>
         <h2 style={styles.sectionTitle}>{t("student.avgBySubject")}</h2>
         {subjectStats.length === 0 ? (
@@ -267,7 +258,7 @@ function StudentView({ studentId }: { studentId: string }) {
         )}
       </section>
 
-      {/* ── Оценки и статус-коды (таблица) ── */}
+      {/* статус коды*/}
       <section style={styles.section}>
         <div style={styles.sectionHead}>
           <h2 style={styles.sectionTitle}>{t("journal.gradesAndStatus")}</h2>
@@ -346,7 +337,7 @@ function StudentView({ studentId }: { studentId: string }) {
         )}
       </section>
 
-      {/* ── Домашнее задание ── */}
+      {/*ДЗ*/}
       <section style={styles.section}>
         <div style={styles.sectionHead}>
           <h2 style={styles.sectionTitle}>{t("student.homeworkTitle")}</h2>
@@ -393,8 +384,6 @@ function StudentView({ studentId }: { studentId: string }) {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────
-
 function getInitials(fullName: string): string {
   return fullName
     .split(" ")
@@ -405,15 +394,13 @@ function getInitials(fullName: string): string {
 
 function currentSchoolYearRange() {
   const now = new Date();
-  // Учебный год начинается в сентябре (месяц 8)
   const year = now.getMonth() >= 8 ? now.getFullYear() : now.getFullYear() - 1;
   return {
-    start: new Date(year, 8, 1),       // 1 сентября
-    end:   new Date(year + 1, 5, 30),  // 30 июня
+    start: new Date(year, 8, 1),
+    end:   new Date(year + 1, 5, 30),
   };
 }
 
-/** Приводит значение Timestamp (Date | string | number | {seconds}) к Date */
 function toDate(v: unknown): Date | null {
   if (!v) return null;
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
@@ -430,7 +417,6 @@ function toDate(v: unknown): Date | null {
 
 function formatDate(v: unknown): string {
   const d = toDate(v);
-  // Формат даты подстраивается под выбранный язык интерфейса.
   return d ? d.toLocaleDateString(i18n.language || "ru-RU") : "—";
 }
 

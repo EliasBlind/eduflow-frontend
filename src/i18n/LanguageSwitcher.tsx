@@ -8,9 +8,6 @@ import {
 import { useTranslation } from "react-i18next";
 import { SUPPORTED_LANGUAGES, type LanguageCode } from "./index";
 
-// -----------------------------------------------------------------------------
-// Флаги стран — inline SVG.
-// -----------------------------------------------------------------------------
 function Flag({ code, size = 20 }: { code: LanguageCode; size?: number }) {
   const rawId = useId();
   const uid = rawId.replace(/[^a-zA-Z0-9_-]/g, "");
@@ -174,9 +171,6 @@ function Flag({ code, size = 20 }: { code: LanguageCode; size?: number }) {
   return null;
 }
 
-// -----------------------------------------------------------------------------
-// Переключатель языка
-// -----------------------------------------------------------------------------
 interface LanguageSwitcherProps {
   compact?: boolean;
   style?: CSSProperties;

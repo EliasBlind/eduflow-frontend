@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 import { useTheme } from "./ThemeProvider";
 
 interface ThemeToggleProps {
-  /** Компактный режим — только иконка (для свёрнутой панели). */
   compact?: boolean;
   style?: CSSProperties;
 }

@@ -31,6 +31,7 @@ interface StatusCodeVM { id: Id; code: string; label: string; color?: string }
 interface GradeVM { id: Id; studentId: Id; date: string; value: number | null; statusCodeId: Id | null; comment?: string; lessonNumber?: number }
 interface HomeworkVM { id: Id; date: string; subjectId?: Id; description: string }
 
+//! TODO: убери any
 /* eslint-disable @typescript-eslint/no-explicit-any */
 function toClass(x: any): ClassVM {
   return { id: String(x.id), name: x.className ?? x.name ?? x.title ?? `Класс ${x.id}` };
@@ -86,7 +87,6 @@ function listOf(data: unknown, ...keys: string[]): any[] {
   for (const v of Object.values(obj)) if (Array.isArray(v)) return v as any[];
   return [];
 }
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
 function iso(d: Date): string {
   return d.toISOString().slice(0, 10);

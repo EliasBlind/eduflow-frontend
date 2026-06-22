@@ -17,10 +17,6 @@ interface State {
   error: string | null;
 }
 
-/**
- * Загрузка всех пользователей (только админ, RPC ListUsers).
- * Грузит при монтировании; refetch перезапускает запрос.
- */
 export function useListUsers(): UseListUsersReturn {
   const [tick, setTick] = useState(0);
   const [state, setState] = useState<State>({

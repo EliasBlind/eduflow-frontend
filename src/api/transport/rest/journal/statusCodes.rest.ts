@@ -1,7 +1,3 @@
-/**
- * REST-клиент для сервиса StatusCodeService (journal.proto)
- */
-
 import { http } from "../_client";
 import type {
   CreateStatusCodeRequest,

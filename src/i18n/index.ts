@@ -15,11 +15,6 @@ import tt from "./locales/tt.json";
 import sah from "./locales/sah.json";
 import cv from "./locales/cv.json";
 
-/**
- * Список поддерживаемых языков.
- * Чтобы добавить новый язык: создайте ./locales/<code>.json,
- * импортируйте его и добавьте сюда строку + в resources ниже.
- */
 export const SUPPORTED_LANGUAGES = [
   { code: "ru", label: "Русский" },
   { code: "en", label: "English" },
@@ -40,8 +35,6 @@ export type LanguageCode = (typeof SUPPORTED_LANGUAGES)[number]["code"];
 export const DEFAULT_LANGUAGE: LanguageCode = "ru";
 
 i18n
-  // Определяет язык пользователя: сначала ранее сохранённый выбор,
-  // затем язык браузера (navigator), затем атрибут <html lang>.
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
@@ -61,11 +54,9 @@ i18n
     },
     fallbackLng: DEFAULT_LANGUAGE,
     supportedLngs: SUPPORTED_LANGUAGES.map((l) => l.code),
-    // en-US, ru-RU и т.п. сводятся к базовому коду (en, ru).
     nonExplicitSupportedLngs: true,
     load: "languageOnly",
     interpolation: {
-      // React сам экранирует значения — двойное экранирование не нужно.
       escapeValue: false,
     },
     detection: {
@@ -75,7 +66,6 @@ i18n
     },
   });
 
-// Держим <html lang="…"> в актуальном состоянии (доступность / SEO).
 i18n.on("languageChanged", (lng) => {
   if (typeof document !== "undefined") {
     document.documentElement.lang = lng;

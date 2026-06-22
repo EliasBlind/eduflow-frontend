@@ -1,8 +1,6 @@
-// Базовые примитивы (переиспользуются в domain-хуках)
 export { useQuery    } from "./useQuery";
 export { useMutation } from "./useMutation";
 
-// Domain-хуки
 export {
   useStudents,
   useStudent,

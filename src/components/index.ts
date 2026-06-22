@@ -3,13 +3,12 @@ export { Button       } from "./ui/Button";
 export { Input        } from "./ui/Input";
 export { Select       } from "./ui/Select";
 export { Spinner, SpinnerFull } from "./ui/Spinner";
-export { Modal        } from "./ui/Modal";
+export { Modal        } from "../hooks/auth/Modal";
 
-// Layout
 export { AppLayout    } from "./layout/AppLayout";
 export { AuthLayout   } from "./layout/AuthLayout";
 
-// Journal
+// journal
 export { GradeCell    } from "./journal/GradeCell";
 export { JournalTable } from "./journal/JournalTable";
 export { HomeworkCard } from "./journal/HomeworkCard";

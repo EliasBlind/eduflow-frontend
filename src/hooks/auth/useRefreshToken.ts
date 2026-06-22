@@ -7,10 +7,6 @@ interface UseRefreshTokenReturn {
   error:   string | null;
 }
 
-/**
- * Хук обновления пары токенов.
- * Как правило вызывается интерцептором, а не напрямую из компонентов.
- */
 export function useRefreshToken(): UseRefreshTokenReturn {
   const [loading, setLoading] = useState(false);
   const [error,   setError  ] = useState<string | null>(null);
